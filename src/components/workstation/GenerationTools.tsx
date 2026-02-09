@@ -830,9 +830,16 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                                 onChange={(e) => setAspectRatio(e.target.value)}
                                 className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-xs text-zinc-200 outline-none appearance-none cursor-pointer"
                             >
-                                <option>16:9</option>
                                 <option>1:1</option>
+                                <option>21:9</option>
+                                <option>16:9</option>
                                 <option>9:16</option>
+                                <option>3:4</option>
+                                <option>4:5</option>
+                                <option>5:4</option>
+                                <option>4:3</option>
+                                <option>3:2</option>
+                                <option>2:3</option>
                             </select>
                             <ChevronDown size={14} className="absolute right-1 top-2.5 text-zinc-500 pointer-events-none" />
                         </div>

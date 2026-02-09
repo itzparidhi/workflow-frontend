@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { uploadAsset } from '../api';
-import { Plus, X, ListChecks, LayoutGrid } from 'lucide-react';
+import { Plus, X, ListChecks, LayoutGrid, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface ResourcesPanelProps {
@@ -23,6 +23,7 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
   const navigate = useNavigate();
   const [resources, setResources] = useState<Resource[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
   const [resourceType, setResourceType] = useState('reference');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,6 +48,25 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
       embedUrl = url.replace(/\/view.*/, '/preview');
     }
     setPreviewUrl(embedUrl);
+  };
+
+  const handleDeleteResource = async () => {
+    if (!selectedResourceId) return;
+
+    if (!window.confirm('Are you sure you want to delete this resource?')) return;
+
+    const { error } = await supabase
+      .from('resources')
+      .delete()
+      .eq('id', selectedResourceId);
+
+    if (error) {
+      console.error('Error deleting resource:', error);
+      alert('Failed to delete resource');
+    } else {
+      setSelectedResourceId(null);
+      fetchResources();
+    }
   };
 
   const handleAddResource = async (e: React.FormEvent) => {
@@ -83,14 +103,25 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
     <div className="p-4 h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">Resources</h2>
-        {(userProfile?.role === 'CD' || userProfile?.role === 'PM') && (
-          <button
-            onClick={() => setIsAdding(!isAdding)}
-            className="p-1 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white"
-          >
-            {isAdding ? <X size={20} /> : <Plus size={20} />}
-          </button>
-        )}
+        <div className="flex gap-2">
+          {selectedResourceId && (userProfile?.role === 'CD' || userProfile?.role === 'PM') && (
+             <button
+              onClick={handleDeleteResource}
+              className="p-1 hover:bg-zinc-700 rounded text-red-400 hover:text-red-300 transition-colors"
+              title="Delete Selected Resource"
+            >
+              <Trash2 size={20} />
+            </button>
+          )}
+          {(userProfile?.role === 'CD' || userProfile?.role === 'PM') && (
+            <button
+              onClick={() => setIsAdding(!isAdding)}
+              className="p-1 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white"
+            >
+              {isAdding ? <X size={20} /> : <Plus size={20} />}
+            </button>
+          )}
+        </div>
       </div>
 
       {isAdding && (
@@ -124,9 +155,20 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
 
       <div className="flex-1 overflow-y-auto space-y-2 ">
         {resources.map(res => (
-          <div key={res.id} className="p-3 bg-zinc-900 rounded border border-zinc-700">
+          <div
+            key={res.id}
+            onClick={() => setSelectedResourceId(selectedResourceId === res.id ? null : res.id)}
+            className={`p-3 rounded border cursor-pointer transition-colors ${
+              selectedResourceId === res.id
+                ? 'bg-zinc-800 border-blue-500'
+                : 'bg-zinc-900 border-zinc-700 hover:border-zinc-600'
+            }`}
+          >
             <button
-              onClick={() => openPreview(res.gdrive_link)}
+              onClick={(e) => {
+                e.stopPropagation();
+                openPreview(res.gdrive_link);
+              }}
               className="text-white hover:underline font-medium text-left break-all cursor-pointer"
             >
               {res.name}

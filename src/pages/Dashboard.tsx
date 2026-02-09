@@ -162,14 +162,12 @@ const handleDeleteProject = async (projectId: string) => {
           onClick={() => setActiveTab('projects')}
         >
           Projects
-          {activeTab === 'projects' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.8)] rounded-t-full" />}
         </button>
         <button
           className={`pb-2 px-4  ${activeTab === 'assignments' ? 'border-b-2 border-white text-white' : 'text-zinc-400'}`}
           onClick={() => setActiveTab('assignments')}
         >
           Assignments
-          {activeTab === 'assignments' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.8)] rounded-t-full" />}
         </button>
       </div>
 

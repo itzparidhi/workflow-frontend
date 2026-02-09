@@ -205,4 +205,9 @@ export const restoreShot = async (shotId: string) => {
   return response.data;
 };
 
+export const unassignShot = async (shotId: string) => {
+  const response = await api.post(`/structure/shot/${shotId}/unassign`);
+  return response.data;
+};
+
 export default api;

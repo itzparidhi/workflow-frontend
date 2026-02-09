@@ -23,7 +23,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useSortable } from '@dnd-kit/sortable';
 import { softDeleteShot } from '../api';
-import { Plus, Trash } from 'lucide-react';
+import { Trash } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface SceneListProps {
@@ -51,6 +51,9 @@ const SortableShotCard: React.FC<ShotCardProps> = ({
   isDeleteEnabled,
   sceneId,
 }) => {
+  const [isDragMode, setIsDragMode] = React.useState(false);
+  const clickTimeoutRef = React.useRef<any>(null);
+
   const {
     attributes,
     listeners,
@@ -65,6 +68,38 @@ const SortableShotCard: React.FC<ShotCardProps> = ({
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
+
+    const handleClick = (e: React.MouseEvent) => {
+    if (isDragMode) {
+      // In drag mode, don't navigate
+      return;
+    }
+
+    // Check for double-click
+    if (clickTimeoutRef.current) {
+      // Double-click detected - enable drag mode
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+      setIsDragMode(true);
+      e.preventDefault();
+      e.stopPropagation();
+    } else {
+      // Single click - navigate after delay
+      clickTimeoutRef.current = setTimeout(() => {
+        clickTimeoutRef.current = null;
+        onNavigate(shot.id);
+      }, 250);
+    }
+  };
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div
@@ -82,10 +117,11 @@ const SortableShotCard: React.FC<ShotCardProps> = ({
       </button>
       
       <div
-        {...attributes}
-        {...listeners}
-        onClick={() => onNavigate(shot.id)}
-        className="cursor-grab active:cursor-grabbing w-32 h-20 !rounded-[20px] flex items-center justify-center border transition-all glass-panel bg-white/5 border-white/10 dark:bg-white/5 dark:border-white/10 hover:border-white/30 hover:scale-105 shadow-glass relative"
+        {...(isDragMode ? attributes : {})}
+        {...(isDragMode ? listeners : {})}
+        onClick={handleClick}
+        className={`w-32 h-20 !rounded-[20px] flex items-center justify-center border transition-all glass-panel bg-white/5 border-white/10 dark:bg-white/5 dark:border-white/10 hover:border-white/30 hover:scale-105 shadow-glass relative ${isDragMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+          }`}
       >
         <div
           className={`
@@ -99,6 +135,13 @@ const SortableShotCard: React.FC<ShotCardProps> = ({
         <span className="text-sm font-medium truncate px-2 shot-text">
           {shot.name}
         </span>
+
+        {/* Drag Mode Indicator */}
+        {isDragMode && (
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] text-white/60 bg-black/50 px-2 py-0.5 rounded-full backdrop-blur-sm">
+            DRAG MODE
+          </div>
+        )}
         
         {/* Delete Button (CD Only) */}
         {isDeleteEnabled && (
@@ -149,11 +192,17 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
 
   const fetchShotsForScene = async (sceneId: string) => {
     // Fetch shots ordered by sequence
-    const { data: shotsData } = await supabase
+    let query = supabase
       .from('shots')
       .select('*')
-      .eq('scene_id', sceneId)
-      .order('sequence', { ascending: true });
+      .eq('scene_id', sceneId);
+
+    // PE only sees assigned shots
+    if (userProfile?.role === 'PE') {
+      query = query.eq('assigned_pe_id', userProfile.id);
+    }
+
+    const { data: shotsData } = await query.order('sequence', { ascending: true });
 
     if (!shotsData) return;
 
@@ -193,25 +242,27 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
     setShotsByScene(prev => ({ ...prev, [sceneId]: shotsWithStatus }));
   };
 
-  const handleAddShot = async (scene: Scene) => {
-    setCreatingShotFor(scene.id);
+  const handleAddShot = async (sceneId: string) => {
+    const scene = scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+
+    setCreatingShotFor(sceneId);
     try {
       // Get shots for this scene to count them
-      const shots = shotsByScene[scene.id] || [];
+      const shots = shotsByScene[sceneId] || [];
       const nextShotNumber = shots.length + 1;
       const shotName = `Shot_${nextShotNumber}`;
 
-      // Create structure with sequence
-      await createStructureWithSequence({
-        type: 'shot',
+      // Insert at the end
+      await insertShotAtPosition({
+        scene_id: sceneId,
         name: shotName,
-        parentDbId: scene.id,
-        parentFolderId: scene.gdrive_folder_id,
+        parent_folder_id: scene.gdrive_folder_id,
         sequence: shots.length,
       });
 
       // Refresh list
-      await fetchShotsForScene(scene.id);
+      await fetchShotsForScene(sceneId);
     } catch (err) {
       console.error('Error creating shot:', err);
       alert('Failed to create shot');
@@ -238,15 +289,14 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
   };
 
   const handleInsertShot = async (sceneId: string, beforeSequence: number) => {
-    const shotName = prompt(`Enter name for new shot to insert at position ${beforeSequence}:`, `Shot_${beforeSequence}`);
-
-    if (!shotName) return;
 
     const scene = scenes.find(s => s.id === sceneId);
     if (!scene) return;
 
     setCreatingShotFor(sceneId);
     try {
+      // Auto-generate shot name based on position
+      const shotName = `Shot_${beforeSequence + 1}`;
       await insertShotAtPosition({
         scene_id: sceneId,
         name: shotName,
@@ -340,41 +390,6 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
             >
               {scene.name}
             </h3>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  const shots = shotsByScene[scene.id];
-                  const nextSeq = shots ? shots.length : 0;
-                  handleInsertShot(scene.id, nextSeq);
-                }}
-                disabled={creatingShotFor === scene.id}
-                className="text-xs glass-button hover:bg-white/20 text-white px-3 py-1 rounded-full shadow-md flex items-center gap-1"
-                title="Insert shot at the end"
-              >
-                {creatingShotFor === scene.id ? (
-                  'Creating...'
-                ) : (
-                  <>
-                    <Plus size={12} />
-                    INSERT SHOT
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => handleAddShot(scene)}
-                disabled={creatingShotFor === scene.id}
-                className="text-xs glass-button hover:bg-white/20 text-white px-3 py-1 rounded-full shadow-md flex items-center gap-1"
-              >
-                {creatingShotFor === scene.id ? (
-                  'Creating...'
-                ) : (
-                  <>
-                    <Plus size={12} />
-                    ADD SHOT
-                  </>
-                )}
-              </button>
-            </div>
           </div>
           <DndContext
             sensors={sensors}
@@ -385,7 +400,7 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
               items={shotsByScene[scene.id]?.map(s => s.id) || []}
               strategy={horizontalListSortingStrategy}
             >
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-4 items-center">
                 {shotsByScene[scene.id]?.map(shot => (
                   <SortableShotCard
                     key={shot.id}
@@ -397,9 +412,16 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
                     sceneId={scene.id}
                   />
                 ))}
-                {(!shotsByScene[scene.id] || shotsByScene[scene.id].length === 0) && (
-                  <p className="text-zinc-500 text-sm italic">No shots</p>
-                )}
+
+                {/* Add + tab after last shot or in empty scene */}
+                <button
+                  onClick={() => handleAddShot(scene.id)}
+                  disabled={creatingShotFor === scene.id}
+                  className="w-6 h-20 text-xs bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/30 rounded flex items-center justify-center text-blue-300 transition-all hover:scale-110 disabled:opacity-50"
+                  title="Add new shot"
+                >
+                  {creatingShotFor === scene.id ? '...' : '+'}
+                </button>
               </div>
             </SortableContext>
           </DndContext>

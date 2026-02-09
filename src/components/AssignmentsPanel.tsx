@@ -117,6 +117,26 @@ export const AssignmentsPanel: React.FC = () => {
     }
   };
 
+  const handleUnassign = async (shotId: string) => {
+    try {
+      const confirm = window.confirm('Unassign this shot?');
+      if (!confirm) return;
+
+      const { error } = await supabase
+        .from('shots')
+        .update({ assigned_pe_id: null })
+        .eq('id', shotId);
+
+      if (error) throw error;
+
+      alert('Shot unassigned!');
+      if (selectedProject) fetchProjectDetails(selectedProject); // Refresh
+    } catch (err) {
+      console.error(err);
+      alert('Unassignment failed');
+    }
+  };
+
   if (loading) return <div className="text-white p-8">Loading assignments...</div>;
 
   return (
@@ -196,10 +216,25 @@ export const AssignmentsPanel: React.FC = () => {
                           ) : (
                             <Square size={16} className="text-zinc-500 fill-white/5" />
                           )}
-                          <span className={`text-sm ${selectedShotIds.includes(shot.id) ? 'text-white font-medium' : 'text-zinc-400'}`}>
+                          <span className={`text-sm flex-1 ${selectedShotIds.includes(shot.id) ? 'text-white font-medium' : 'text-zinc-400'}`}>
                             {shot.name}
                           </span>
-                          {shot.assigned_pe_id && <span className="text-[9px] ml-auto text-green-300 font-bold uppercase tracking-widest bg-green-900/40 px-2 py-1 rounded border border-green-700/50 shadow-sm">Assigned</span>}
+                          {shot.assigned_pe_id && (
+                            <>
+                              <span className="text-[9px] text-green-300 font-bold uppercase tracking-widest bg-green-900/40 px-2 py-1 rounded border border-green-700/50 shadow-sm">
+                                Assigned
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUnassign(shot.id);
+                                }}
+                                className="text-[9px] text-red-300 font-bold uppercase tracking-widest bg-red-900/40 px-2 py-1 rounded border border-red-700/50 shadow-sm hover:bg-red-900/60 transition-colors"
+                              >
+                                Unassign
+                              </button>
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>

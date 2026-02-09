@@ -37,11 +37,17 @@ export const SceneDetail: React.FC = () => {
   };
 
   const fetchShots = async (id: string) => {
-    const { data } = await supabase
+    let query = supabase
       .from('shots')
       .select('*')
-      .eq('scene_id', id)
-      .order('created_at', { ascending: true });
+      .eq('scene_id', id);
+
+    // PE only sees assigned shots
+    if (userProfile?.role === 'PE') {
+      query = query.eq('assigned_pe_id', userProfile.id);
+    }
+
+    const { data } = await query.order('created_at', { ascending: true });
     if (data) setShots(data);
   };
 
