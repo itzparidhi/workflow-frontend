@@ -53,7 +53,7 @@ export const Timeline: React.FC = () => {
         .eq('scenes.project_id', project.id)
         .eq('is_deleted', true)
         .order('deleted_at', { ascending: false });
-      
+
       if (error) throw error;
       setDeletedShots(data || []);
     } catch (err) {
@@ -119,7 +119,7 @@ export const Timeline: React.FC = () => {
             <h1 className="text-2xl font-bold">{project.name}</h1>
           </div>
 
-        {/* <div className="p-6 border-b border-white/10 flex justify-between items-center bg-zinc-900/50 backdrop-blur-md z-10 shrink-0">
+          {/* <div className="p-6 border-b border-white/10 flex justify-between items-center bg-zinc-900/50 backdrop-blur-md z-10 shrink-0">
           <div className="flex items-center space-x-6">
             <button onClick={() => navigate('/')} className="text-zinc-400 hover:text-white transition-colors flex items-center gap-2">
               <ArrowLeft size={18} /> <span className="text-sm font-bold uppercase tracking-wide">Back</span>
@@ -127,51 +127,51 @@ export const Timeline: React.FC = () => {
             <div className="h-8 w-px bg-white/10"></div>
             <h1 className="text-2xl font-display font-bold">{project.name}</h1>
           </div> */}
-        <div className="flex items-center space-x-4">
-          <ViewSelector currentMode={viewMode} onModeChange={setViewMode} />
-          <NotificationBell />
-          {/* Trash Bin Button (CD Role Only) */}
-          {userProfile?.role === 'CD' && (
-            <button
-              onClick={() => setShowTrashBin(true)}
-              className="text-zinc-400 hover:text-white relative p-2"
-              title="Recently Deleted"
-            >
-              <Trash2 size={20} />
-            </button>
-          )}
-          {userProfile?.role === 'CD' && (
-            <button
-              onClick={handleAddScene}
-              disabled={creatingScene}
-              className="flex items-center space-x-2 px-4 py-2 glass-button hover:bg-white/10 rounded text-white font-medium disabled:opacity-50"
-            >
-              <Plus size={18} />
-              <span>{creatingScene ? 'Creating...' : 'ADD SCENE'}</span>
-            </button>
-          )}
+          <div className="flex items-center space-x-4">
+            <ViewSelector currentMode={viewMode} onModeChange={setViewMode} />
+            <NotificationBell />
+            {/* Trash Bin Button (PM and CD Roles) */}
+            {(userProfile?.role === 'CD' || userProfile?.role === 'PM') && (
+              <button
+                onClick={() => setShowTrashBin(true)}
+                className="text-zinc-400 hover:text-white relative p-2"
+                title="Recently Deleted"
+              >
+                <Trash2 size={20} />
+              </button>
+            )}
+            {userProfile?.role === 'CD' && (
+              <button
+                onClick={handleAddScene}
+                disabled={creatingScene}
+                className="flex items-center space-x-2 px-4 py-2 glass-button hover:bg-white/10 rounded text-white font-medium disabled:opacity-50"
+              >
+                <Plus size={18} />
+                <span>{creatingScene ? 'Creating...' : 'ADD SCENE'}</span>
+              </button>
+            )}
+          </div>
         </div>
-      </div>
-      <div className="flex-1 overflow-y-auto p-8 relative z-10">
-        <div className={`
+        <div className="flex-1 overflow-y-auto p-8 relative z-10">
+          <div className={`
         grid gap-6
         ${viewMode === 'list' ? 'grid-cols-1' : ''}
         ${viewMode === 'columns' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : ''}
         ${viewMode === 'gallery' ? 'grid-cols-1 md:grid-cols-2' : ''}
       `}>
-          <SceneList key={refreshKey} projectId={project.id} />
+            <SceneList key={refreshKey} projectId={project.id} />
+          </div>
         </div>
+
+        <CompletionStatusModal
+          isOpen={isStatusModalOpen}
+          onClose={() => setIsStatusModalOpen(false)}
+          projectId={project.id}
+        />
       </div>
 
-      <CompletionStatusModal
-        isOpen={isStatusModalOpen}
-        onClose={() => setIsStatusModalOpen(false)}
-        projectId={project.id}
-      />
-    </div>
-
-    {/* Trash Bin Modal */}
-    {showTrashBin && (
+      {/* Trash Bin Modal */}
+      {showTrashBin && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
             <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
@@ -179,14 +179,14 @@ export const Timeline: React.FC = () => {
                 <Trash2 size={24} className="text-red-500" />
                 Recently Deleted (Project-wide)
               </h2>
-              <button 
+              <button
                 onClick={() => setShowTrashBin(false)}
                 className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-4">
               {deletedShots.length === 0 ? (
                 <div className="text-center py-12 text-zinc-500">
@@ -218,14 +218,14 @@ export const Timeline: React.FC = () => {
         </div>
       )}
 
-    {/* Right Panel: Resources */}
-    <div className="w-1/4 bg-zinc-800 flex flex-col">
-      <ResourcesPanel 
-        projectId={project.id} 
-        projectFolderId={project.gdrive_folder_id} 
-        onShowCompletionStatus={() => setIsStatusModalOpen(true)}
-      />
+      {/* Right Panel: Resources */}
+      <div className="w-1/4 bg-zinc-800 flex flex-col">
+        <ResourcesPanel
+          projectId={project.id}
+          projectFolderId={project.gdrive_folder_id}
+          onShowCompletionStatus={() => setIsStatusModalOpen(true)}
+        />
+      </div>
     </div>
-  </div>
-);
+  );
 };

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Project } from '../types';
 import { Trash2 } from 'lucide-react';
+import { verifyDeleteProject } from '../api';
 
 interface ProjectCardProps {
   project: Project;
@@ -39,18 +40,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, disa
     setDeleteError('');
     try {
       // Verify password with backend first
-      const resp = await fetch(`https://itoolback.onrender.com/structure/project/${project.id}/confirm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => null);
-        setDeleteError(err?.detail || 'Incorrect password');
-        setIsDeleting(false);
-        return;
-      }
+      await verifyDeleteProject(project.id, password);
 
       // On success, call the provided onDelete handler which performs API deletion
       if (onDelete) {
@@ -58,8 +48,10 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, disa
         setShowDeleteConfirm(false);
         setPassword('');
       }
-    } catch (error) {
-      setDeleteError('Failed to delete project. Please try again.');
+    } catch (error: any) {
+      // Extract error message from axios response or use fallback
+      const errorMessage = error?.response?.data?.detail || 'Incorrect password or failed to delete project.';
+      setDeleteError(errorMessage);
       setIsDeleting(false);
       console.error('Delete error:', error);
     }
@@ -171,7 +163,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, disa
             <p className="text-zinc-400 mb-4 text-sm">
               Are you sure you want to delete <span className="font-semibold text-white">{project.name}</span>? This action cannot be undone.
             </p>
-            
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-zinc-300 mb-2">
                 Enter password to confirm:

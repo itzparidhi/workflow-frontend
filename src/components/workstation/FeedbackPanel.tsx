@@ -270,6 +270,56 @@ export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
                                 )}
                             </div>
                         </div>
+
+                        {/* Master CD Card - Read Only */}
+                        {(review.master_cd_vote !== null && review.master_cd_vote !== undefined) && (
+                            <div className="p-4 bg-zinc-900 rounded border border-purple-700/50">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="font-bold text-purple-300">Master CD Review</h3>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${review.master_cd_vote ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                                        {review.master_cd_vote ? 'Approved & Synced' : 'Rejected'}
+                                    </span>
+                                </div>
+
+                                {/* Rejection Feedback */}
+                                {review.master_cd_vote === false && (
+                                    <div className="space-y-3">
+                                        {review.master_cd_comment && (
+                                            <div className="bg-black/40 p-3 rounded-lg border border-white/10">
+                                                <h4 className="text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-widest">Feedback</h4>
+                                                <p className="text-sm text-zinc-300">{review.master_cd_comment}</p>
+                                            </div>
+                                        )}
+
+                                        {review.master_cd_image_url && (
+                                            <div>
+                                                <h4 className="text-[10px] font-bold text-zinc-500 uppercase mb-2 tracking-widest">Reference Image</h4>
+                                                <div className="relative group w-24 h-24 bg-black/50 rounded-lg overflow-hidden border border-white/10">
+                                                    <img
+                                                        src={review.master_cd_image_url}
+                                                        alt="Master CD feedback"
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <button
+                                                            onClick={() => setViewImage({ url: review.master_cd_image_url!, prompt: 'Master CD Feedback' })}
+                                                            className="p-1.5 bg-zinc-800 text-white rounded-full hover:bg-zinc-700"
+                                                            title="View Full"
+                                                        >
+                                                            <Maximize2 size={12} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {review.master_cd_vote === true && (
+                                    <p className="text-sm text-zinc-500">This shot has been synced to Google Drive.</p>
+                                )}
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="flex-1 flex items-center justify-center text-zinc-500 text-sm">

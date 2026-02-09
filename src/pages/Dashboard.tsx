@@ -8,14 +8,15 @@ import { PEAssignmentsPanel } from '../components/PEAssignmentsPanel';
 import { CreateProjectModal } from '../components/CreateProjectModal';
 import { NotificationBell } from '../components/NotificationBell';
 import { useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { deleteProject } from '../api';
+import { TrashPanel } from '../components/TrashPanel';
 
 
 export const Dashboard: React.FC = () => {
   const { userProfile, signOut } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'projects' | 'assignments'>('projects');
+  const [activeTab, setActiveTab] = useState<'projects' | 'assignments' | 'trash'>('projects');
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectStats, setProjectStats] = useState<Record<string, { total: number; green: number }>>({});
@@ -85,7 +86,7 @@ export const Dashboard: React.FC = () => {
     if (!userProfile) return;
     setLoading(true);
 
-    let query = supabase.from('projects').select('*');
+    let query = supabase.from('projects').select('*').or('is_deleted.is.null,is_deleted.eq.false');
 
     if (userProfile.role === 'PM') {
       query = query.eq('assigned_pm_id', userProfile.id);
@@ -116,13 +117,13 @@ export const Dashboard: React.FC = () => {
   };
 
 
-const handleDeleteProject = async (projectId: string) => {
+  const handleDeleteProject = async (projectId: string) => {
     const previousProjects = projects; // Save the previous state
-    
+
     try {
       // Optimistic update - remove the project immediately from the UI
       setProjects(projects.filter(p => p.id !== projectId));
-      
+
       // Then call the delete API
       await deleteProject(projectId);
     } catch (error) {
@@ -169,10 +170,19 @@ const handleDeleteProject = async (projectId: string) => {
         >
           Assignments
         </button>
+        {userProfile?.role === 'CD' && (
+          <button
+            className={`pb-2 px-4 flex items-center gap-2 ${activeTab === 'trash' ? 'border-b-2 border-white text-white' : 'text-zinc-400'}`}
+            onClick={() => setActiveTab('trash')}
+          >
+            <Trash2 size={16} />
+            Trash
+          </button>
+        )}
       </div>
 
-      {activeTab === 'projects' ? (
-        loading ? <div>Loading projects...</div> :(
+      {activeTab === 'projects' && (
+        loading ? <div>Loading projects...</div> : (
           <div className="flex flex-wrap gap-6 ">
             {projects.length === 0 ? (
               <p className="text-zinc-500">No projects assigned.</p>
@@ -190,8 +200,14 @@ const handleDeleteProject = async (projectId: string) => {
             )}
           </div>
         )
-      ) : (
-          userProfile?.role === 'PE' ? <PEAssignmentsPanel /> : <AssignmentsPanel />
+      )}
+
+      {activeTab === 'assignments' && (
+        userProfile?.role === 'PE' ? <PEAssignmentsPanel /> : <AssignmentsPanel />
+      )}
+
+      {activeTab === 'trash' && userProfile?.role === 'CD' && (
+        <TrashPanel onProjectRestored={fetchProjects} />
       )}
 
       <CreateProjectModal

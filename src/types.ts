@@ -13,6 +13,8 @@ export interface Project {
   gdrive_folder_id: string;
   assigned_pm_id: string | null;
   created_at: string;
+  is_deleted?: boolean;
+  deleted_at?: string;
 }
 
 export interface Scene {
@@ -98,6 +100,10 @@ export interface Review {
   cd_voted_at: string | null;
   pm_image_url?: string | null;
   cd_image_url?: string | null;
+  master_cd_vote?: boolean | null;
+  master_cd_comment?: string | null;
+  master_cd_voted_at?: string | null;
+  master_cd_image_url?: string | null;
 }
 
 export interface Notification {

@@ -162,26 +162,8 @@ export const useWorkstation = () => {
 
     await supabase.from('reviews').update(update).eq('id', review.id);
 
-    // If feedback is positive, lock it as Active and Sync to Drive
-    if (vote === true) {
-      try {
-        // Import dynamically or ensure api is imported. 
-        // Better to assume we have api import, but we need to check if we need to call setActive here?
-        // User says: "approved by cd or Pm it already sets ... active version"
-
-        // To be safe, we perform the drive sync here:
-        const { setActiveVersion } = await import('../api');
-        await setActiveVersion({
-          version_id: activeVersion.id,
-          folder_id: shot.gdrive_folder_id,
-          shot_name: shot.name
-        });
-        dialog.alert('Success', 'Version approved and synced to Drive!', 'success');
-      } catch (err) {
-        console.error('Failed to sync Approved version to Drive:', err);
-        dialog.alert('Warning', 'Approved, but failed to sync to Drive. Check logs.', 'warning');
-      }
-    }
+    // Note: Drive sync has been moved to Master CD approval flow
+    // The version will be synced to Drive only when Master CD approves in MasterView
 
     notifyPE('feedback');
   };

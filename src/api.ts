@@ -1,11 +1,10 @@
 import axios from 'axios';
 
-const getApiUrl = () => {
-  // Always use Render backend
-  return 'https://itoolback.onrender.com';
-};
-
-const API_URL = getApiUrl();
+// API URL from environment variable - defaults to local backend for development
+// To switch backends, update VITE_API_URL in .env:
+//   Local:  VITE_API_URL=http://localhost:8000
+//   Render: VITE_API_URL=https://itoolback.onrender.com
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -195,6 +194,11 @@ export const verifyDeleteProject = async (projectId: string, password: string) =
   return response.data;
 };
 
+export const restoreProject = async (projectId: string) => {
+  const response = await api.post(`/structure/project/${projectId}/restore`);
+  return response.data;
+};
+
 export const softDeleteShot = async (shotId: string) => {
   const response = await api.delete(`/structure/shot/${shotId}`);
   return response.data;
@@ -207,6 +211,48 @@ export const restoreShot = async (shotId: string) => {
 
 export const unassignShot = async (shotId: string) => {
   const response = await api.post(`/structure/shot/${shotId}/unassign`);
+  return response.data;
+};
+
+// Master CD Functions
+export const checkIsMasterCD = async (email: string) => {
+  const response = await api.get(`/config/is-master-cd/${encodeURIComponent(email)}`);
+  return response.data;
+};
+
+export const masterApproveVersion = async (
+  versionId: string,
+  userEmail: string,
+  shotName: string,
+  targetFolderId: string
+) => {
+  const formData = new FormData();
+  formData.append('user_email', userEmail);
+  formData.append('shot_name', shotName);
+  formData.append('target_folder_id', targetFolderId);
+
+  const response = await api.post(`/reviews/${versionId}/master-approve`, formData);
+  return response.data;
+};
+
+export const masterRejectVersion = async (
+  versionId: string,
+  userEmail: string,
+  comment: string,
+  peUserId: string,
+  shotId: string,
+  image?: File
+) => {
+  const formData = new FormData();
+  formData.append('user_email', userEmail);
+  formData.append('comment', comment);
+  formData.append('pe_user_id', peUserId);
+  formData.append('shot_id', shotId);
+  if (image) {
+    formData.append('image', image);
+  }
+
+  const response = await api.post(`/reviews/${versionId}/master-reject`, formData);
   return response.data;
 };
 
