@@ -6,6 +6,7 @@ import { useWorkstation } from '../hooks/useWorkstation';
 import { generateImage, fetchGenerations } from '../api';
 import type { Generation } from '../types';
 import { DriveIcon } from '../components/DriveIcon';
+import { supabase } from '../supabaseClient';
 
 // Import new components
 import { ReferencePanel } from '../components/workstation/ReferencePanel';
@@ -56,6 +57,10 @@ export const Workstation: React.FC = () => {
   const customUploadRef = useRef<HTMLInputElement>(null);
   const clickTimeoutRef = useRef<any>(null);
 
+  // Project ID for character resources
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [showCharacterModalFromMention, setShowCharacterModalFromMention] = useState(false);
+
   // HOISTED HOOK
   const {
     shot,
@@ -97,7 +102,22 @@ export const Workstation: React.FC = () => {
     }
     dialog.alert('Success', `Saved ${urls.length} background(s) to references!`, 'success');
   };
+  // Fetch project ID from scene when shot loads
+  useEffect(() => {
+    const fetchProjectId = async () => {
+      if (!shot?.scene_id) return;
 
+      const { data } = await supabase
+        .from('scenes')
+        .select('project_id')
+        .eq('id', shot.scene_id)
+        .single();
+
+      if (data) setProjectId(data.project_id);
+    };
+
+    fetchProjectId();
+  }, [shot?.scene_id]);
 
 
 
@@ -111,11 +131,19 @@ export const Workstation: React.FC = () => {
     const lastAtPos = textBeforeCursor.lastIndexOf('@');
 
     if (lastAtPos !== -1) {
-      // If we typed @, show menu. But ensure no space after @
+      // If we typed @, check what comes after
       const query = textBeforeCursor.substring(lastAtPos + 1);
+
+      // Check for @ch trigger for character selection
+      if (query.toLowerCase() === 'ch' && projectId) {
+        setShowCharacterModalFromMention(true);
+        return;
+      }
+
+      // Show image tag menu if no space after @ and we have ref images
       if (!query.includes(' ') && refImages.length > 0) {
         setShowTagMenu(true);
-        // Calculate position... simplified for now, just show near textarea
+        
         return;
       }
     }
@@ -142,6 +170,25 @@ export const Workstation: React.FC = () => {
     }, 0);
   };
 
+  const handleCharacterMentionSelect = (characters: any[]) => {
+    if (!textareaRef.current || characters.length === 0) return;
+
+    const val = prompt;
+    const cursorIndex = textareaRef.current.selectionStart;
+    const textBeforeCursor = val.substring(0, cursorIndex);
+    const lastAtPos = textBeforeCursor.lastIndexOf('@');
+
+    // Insert character names separated by commas
+    const characterNames = characters.map(c => c.name).join(', ');
+    const newVal = val.substring(0, lastAtPos) + characterNames + ' ' + val.substring(cursorIndex);
+    setPrompt(newVal);
+    setShowCharacterModalFromMention(false);
+
+    // Refocus and set cursor
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 0);
+  };
   // Clean up ObjectURLs to prevent memory leaks
   useEffect(() => {
     return () => {
@@ -765,6 +812,12 @@ export const Workstation: React.FC = () => {
           backgroundGridFile={backgroundGridFile}
           setBackgroundGridFile={setBackgroundGridFile}
           handleBackgroundGridUpload={handleBackgroundGridUpload}
+          // Project ID
+          projectId={projectId}
+          // Character mention
+          showCharacterModalFromMention={showCharacterModalFromMention}
+          onCharacterMentionSelect={handleCharacterMentionSelect}
+          onCloseCharacterMention={() => setShowCharacterModalFromMention(false)}
         />
       </div>
 

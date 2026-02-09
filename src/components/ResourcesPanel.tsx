@@ -98,9 +98,10 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
       setResourceType('reference');
       setIsAdding(false);
       fetchResources();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding resource:', err);
-      dialog.alert('Error', 'Failed to add resource', 'danger');
+      const errorMsg = err.response?.data?.detail || err.message || 'Failed to add resource';
+      alert(`Failed to add resource: ${errorMsg}`);
     } finally {
       setLoading(false);
     }
@@ -141,6 +142,7 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
             <option value="reference">Reference</option>
             <option value="script">Script</option>
             <option value="document">Document</option>
+            {userProfile?.role === 'CD' && <option value="character">Character</option>}
             <option value="other">Other</option>
           </select>
 
