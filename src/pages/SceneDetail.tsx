@@ -9,11 +9,13 @@ import { getDirectDriveLink } from '../utils/drive';
 import { NotificationBell } from '../components/NotificationBell';
 import { createStructure, softDeleteShot, restoreShot } from '../api';
 import { Trash2, RotateCcw, Trash, X } from 'lucide-react';
+import { useDialog } from '../context/DialogContext';
 
 export const SceneDetail: React.FC = () => {
   const { projectId, sceneId } = useParams<{ projectId: string; sceneId: string }>();
   const navigate = useNavigate();
   const { userProfile } = useAuth();
+  const dialog = useDialog();
   const [scene, setScene] = useState<Scene | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
   const [creatingShot, setCreatingShot] = useState(false);
@@ -75,7 +77,7 @@ export const SceneDetail: React.FC = () => {
       fetchShots(scene.id);
     } catch (err) {
       console.error('Error creating shot:', err);
-      alert('Failed to create shot');
+      dialog.alert('Error', 'Failed to create shot', 'danger');
     } finally {
       setCreatingShot(false);
     }
@@ -83,16 +85,22 @@ export const SceneDetail: React.FC = () => {
 
   const handleSoftDelete = async (e: React.MouseEvent, shotId: string) => {
     e.stopPropagation();
-    if (!window.confirm("Are you sure you want to move this shot to the trash?")) return;
-
-    try {
-      await softDeleteShot(shotId);
-      // Optimistic update
-      setShots(prev => prev.map(s => s.id === shotId ? { ...s, is_deleted: true, deleted_at: new Date().toISOString() } : s));
-    } catch (err: any) {
-      console.error("Failed to delete shot:", err);
-      alert(err.response?.data?.detail || "Failed to delete shot");
-    }
+    
+    dialog.confirm(
+        "Delete Shot?", 
+        "Are you sure you want to move this shot to the trash?", 
+        async () => {
+            try {
+              await softDeleteShot(shotId);
+              // Optimistic update
+              setShots(prev => prev.map(s => s.id === shotId ? { ...s, is_deleted: true, deleted_at: new Date().toISOString() } : s));
+            } catch (err: any) {
+              console.error("Failed to delete shot:", err);
+              dialog.alert("Error", err.response?.data?.detail || "Failed to delete shot", 'danger');
+            }
+        },
+        'danger'
+    );
   };
 
   const handleRestore = async (shotId: string) => {
@@ -102,7 +110,7 @@ export const SceneDetail: React.FC = () => {
       setShots(prev => prev.map(s => s.id === shotId ? { ...s, is_deleted: false, deleted_at: undefined } : s));
     } catch (err: any) {
       console.error("Failed to restore shot:", err);
-      alert(err.response?.data?.detail || "Failed to restore shot");
+      dialog.alert("Error", err.response?.data?.detail || "Failed to restore shot", 'danger');
     }
   };
 

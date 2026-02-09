@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import type { Project, Scene, Shot, UserProfile } from '../types';
 import { CheckSquare, Square, AlertCircle } from 'lucide-react';
+import { useDialog } from '../context/DialogContext';
 
 export const AssignmentsPanel: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -16,6 +17,8 @@ export const AssignmentsPanel: React.FC = () => {
   const [shots, setShots] = useState<Shot[]>([]);
   const [selectedShotIds, setSelectedShotIds] = useState<string[]>([]);
   const [targetPeId, setTargetPeId] = useState<string>('');
+
+  const dialog = useDialog();
 
   useEffect(() => {
     fetchData();
@@ -94,53 +97,68 @@ export const AssignmentsPanel: React.FC = () => {
     }
   };
 
-  const handleBulkAssign = async () => {
-    if (!targetPeId || selectedShotIds.length === 0) return;
+  const executeBulkAssign = async () => {
     try {
-      const peName = pes.find(p => p.id === targetPeId)?.email;
-      const confirm = window.confirm(`Assign ${selectedShotIds.length} shots to ${peName}?`);
-      if (!confirm) return;
+        const { error } = await supabase
+          .from('shots')
+          .update({ assigned_pe_id: targetPeId })
+          .in('id', selectedShotIds);
 
-      const { error } = await supabase
-        .from('shots')
-        .update({ assigned_pe_id: targetPeId })
-        .in('id', selectedShotIds);
+        if (error) throw error;
 
-      if (error) throw error;
-
-      alert('Assignments updated!');
-      setSelectedShotIds([]);
-      if (selectedProject) fetchProjectDetails(selectedProject); // Refresh
+        dialog.alert('Success', 'Assignments updated successfully!', 'success');
+        setSelectedShotIds([]);
+        if (selectedProject) fetchProjectDetails(selectedProject);
     } catch (err) {
-      console.error(err);
-      alert('Assignment failed');
+        console.error(err);
+        dialog.alert('Error', 'Assignment failed. Please try again.', 'danger');
     }
   };
 
+  const handleBulkAssign = async () => {
+    if (!targetPeId || selectedShotIds.length === 0) return;
+    
+    const peName = pes.find(p => p.id === targetPeId)?.email || 'the selected engineer';
+    
+    dialog.confirm(
+        'Confirm Assignment', 
+        `Are you sure you want to assign ${selectedShotIds.length} shots to ${peName}?`, 
+        executeBulkAssign,
+        'info'
+    );
+  };
+
+  const executeUnassign = async (shotId: string) => {
+      try {
+        const { error } = await supabase
+            .from('shots')
+            .update({ assigned_pe_id: null })
+            .eq('id', shotId);
+
+        if (error) throw error;
+
+        dialog.alert('Success', 'Shot unassigned successfully.', 'success');
+        if (selectedProject) fetchProjectDetails(selectedProject); 
+      } catch (err) {
+        console.error(err);
+        dialog.alert('Error', 'Unassignment failed.', 'danger');
+      }
+  };
+
   const handleUnassign = async (shotId: string) => {
-    try {
-      const confirm = window.confirm('Unassign this shot?');
-      if (!confirm) return;
-
-      const { error } = await supabase
-        .from('shots')
-        .update({ assigned_pe_id: null })
-        .eq('id', shotId);
-
-      if (error) throw error;
-
-      alert('Shot unassigned!');
-      if (selectedProject) fetchProjectDetails(selectedProject); // Refresh
-    } catch (err) {
-      console.error(err);
-      alert('Unassignment failed');
-    }
+      dialog.confirm(
+          'Unassign Shot',
+          'Are you sure you want to unassign this shot? The engineer will lose access.',
+          () => executeUnassign(shotId),
+          'danger'
+      );
   };
 
   if (loading) return <div className="text-white p-8">Loading assignments...</div>;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      
       {/* CD Only: Assign PMs */}
       {userProfile?.role === 'CD' && (
         <div className="glass-panel p-6">
@@ -229,7 +247,7 @@ export const AssignmentsPanel: React.FC = () => {
                                   e.stopPropagation();
                                   handleUnassign(shot.id);
                                 }}
-                                className="text-[9px] text-red-300 font-bold uppercase tracking-widest bg-red-900/40 px-2 py-1 rounded border border-red-700/50 shadow-sm hover:bg-red-900/60 transition-colors"
+                                className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 hover:text-red-300 border border-white/5 hover:border-red-500/30 hover:bg-red-950/30 px-2.5 py-1 rounded-full transition-all duration-300 hover:scale-105 active:scale-95"
                               >
                                 Unassign
                               </button>

@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { uploadAsset } from '../api';
 import { Plus, X, ListChecks, LayoutGrid, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useDialog } from '../context/DialogContext';
 
 interface ResourcesPanelProps {
   projectId: string;
@@ -21,6 +22,7 @@ interface Resource {
 export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, projectFolderId, onShowCompletionStatus }) => {
   const { userProfile } = useAuth();
   const navigate = useNavigate();
+  const dialog = useDialog();
   const [resources, setResources] = useState<Resource[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
@@ -53,20 +55,25 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
   const handleDeleteResource = async () => {
     if (!selectedResourceId) return;
 
-    if (!window.confirm('Are you sure you want to delete this resource?')) return;
+    dialog.confirm(
+      'Delete Resource?',
+      'Are you sure you want to delete this resource?',
+      async () => {
+        const { error } = await supabase
+          .from('resources')
+          .delete()
+          .eq('id', selectedResourceId);
 
-    const { error } = await supabase
-      .from('resources')
-      .delete()
-      .eq('id', selectedResourceId);
-
-    if (error) {
-      console.error('Error deleting resource:', error);
-      alert('Failed to delete resource');
-    } else {
-      setSelectedResourceId(null);
-      fetchResources();
-    }
+        if (error) {
+          console.error('Error deleting resource:', error);
+          dialog.alert('Error', 'Failed to delete resource', 'danger');
+        } else {
+          setSelectedResourceId(null);
+          fetchResources();
+        }
+      },
+      'danger'
+    );
   };
 
   const handleAddResource = async (e: React.FormEvent) => {
@@ -93,7 +100,7 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
       fetchResources();
     } catch (err) {
       console.error('Error adding resource:', err);
-      alert('Failed to add resource');
+      dialog.alert('Error', 'Failed to add resource', 'danger');
     } finally {
       setLoading(false);
     }

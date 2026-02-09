@@ -11,12 +11,14 @@ import { CompletionStatusModal } from '../components/CompletionStatusModal';
 import { ViewSelector } from '../components/ViewSelector';
 import { createStructure, restoreShot } from '../api';
 import { Trash2, RotateCcw, X } from 'lucide-react';
+import { useDialog } from '../context/DialogContext';
 // import type { Shot } from '../types';
 
 export const Timeline: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { userProfile } = useAuth();
+  const dialog = useDialog();
   const [project, setProject] = useState<Project | null>(null);
   const [creatingScene, setCreatingScene] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -69,6 +71,7 @@ export const Timeline: React.FC = () => {
     } catch (err: any) {
       console.error("Failed to restore shot:", err);
       alert(err.response?.data?.detail || "Failed to restore shot");
+      dialog.alert('Error', err.response?.data?.detail || "Failed to restore shot", 'danger');
     }
   };
 
@@ -98,7 +101,7 @@ export const Timeline: React.FC = () => {
 
     } catch (err) {
       console.error('Error creating scene:', err);
-      alert('Failed to create scene');
+      dialog.alert('Error', 'Failed to create scene', 'danger');
     } finally {
       setCreatingScene(false);
     }

@@ -16,9 +16,11 @@ import { DriveImage } from '../components/DriveImage';
 import { FeedbackPanel } from '../components/workstation/FeedbackPanel';
 import { BackgroundGridResultsModal } from '../components/BackgroundGridResultsModal';
 import { getDirectDriveLink, getExportViewLink } from '../utils/drive';
+import { useDialog } from '../context/DialogContext';
 
 export const Workstation: React.FC = () => {
   const navigate = useNavigate();
+  const dialog = useDialog();
 
   // AI Generation State
   const [prompt, setPrompt] = useState('');
@@ -93,7 +95,7 @@ export const Workstation: React.FC = () => {
     for (const url of urls) {
       await saveBackgroundReference(url);
     }
-    alert(`Saved ${urls.length} background(s) to references!`);
+    dialog.alert('Success', `Saved ${urls.length} background(s) to references!`, 'success');
   };
 
 
@@ -227,7 +229,7 @@ export const Workstation: React.FC = () => {
       if (file.type.startsWith('image/')) {
         setAutoStoryboardFile(file);
       } else {
-        alert('Please select a valid image file.');
+        dialog.alert('Error', 'Please select a valid image file.', 'warning');
       }
     }
   };
@@ -237,7 +239,7 @@ export const Workstation: React.FC = () => {
       if (file.type.startsWith('image/')) {
         setAutoCompositionFile(file);
       } else {
-        alert('Please select a valid image file.');
+        dialog.alert('Error', 'Please select a valid image file.', 'warning');
       }
     }
   };
@@ -247,7 +249,7 @@ export const Workstation: React.FC = () => {
       if (file.type.startsWith('image/')) {
         setAutoBackgroundFile(file);
       } else {
-        alert('Please select a valid image file.');
+        dialog.alert('Error', 'Please select a valid image file.', 'warning');
       }
     }
   };
@@ -258,7 +260,7 @@ export const Workstation: React.FC = () => {
       if (file.type.startsWith('image/')) {
         setter(file);
       } else {
-        alert('Please select a valid image file.');
+        dialog.alert('Error', 'Please select a valid image file.', 'warning');
       }
     }
   };
@@ -269,7 +271,7 @@ export const Workstation: React.FC = () => {
       if (file.type.startsWith('image/')) {
         setAutoCharacterFiles(prev => ({ ...prev, [id]: file }));
       } else {
-        alert('Please select a valid image file.');
+        dialog.alert('Error', 'Please select a valid image file.', 'warning');
       }
     }
   };
@@ -313,104 +315,109 @@ export const Workstation: React.FC = () => {
 
 
   const handleRestore = async (gen: Generation) => {
-    if (!confirm("Restore settings from this generation? Current inputs will be replaced.")) return;
+    dialog.confirm(
+      "Restore Settings?",
+      "Restore settings from this generation? Current inputs will be replaced.",
+      async () => {
+        setPrompt(gen.prompt);
+        setSelectedModel(gen.model);
+        setAspectRatio(gen.aspect_ratio);
+        setResolution(gen.resolution || '1K');
 
-    setPrompt(gen.prompt);
-    setSelectedModel(gen.model);
-    setAspectRatio(gen.aspect_ratio);
-    setResolution(gen.resolution || '1K');
+        if (gen.ref_data) {
+          setGenerationMode(gen.ref_data.mode);
 
-    if (gen.ref_data) {
-      setGenerationMode(gen.ref_data.mode);
+          // Helper to fetch file
+          const fetchFile = async (url: string, name: string, type: string = 'image/png') => {
+            try {
+              const r = await fetch(url);
+              const blob = await r.blob();
+              return new File([blob], name, { type });
+            } catch (e) {
+              console.error("Failed to restore file", name, e);
+              return null;
+            }
+          };
 
-      // Helper to fetch file
-      const fetchFile = async (url: string, name: string, type: string = 'image/png') => {
-        try {
-          const r = await fetch(url);
-          const blob = await r.blob();
-          return new File([blob], name, { type });
-        } catch (e) {
-          console.error("Failed to restore file", name, e);
-          return null;
-        }
-      };
+          if (gen.ref_data.mode === 'manual') {
+            const files: File[] = [];
+            for (const ref of gen.ref_data.manual_refs) {
+              const f = await fetchFile(ref.url, ref.name, ref.type);
+              if (f) files.push(f);
+            }
+            setRefImages(files);
+          } else if (gen.ref_data.mode === 'automatic') {
+            // Restore Auto Inputs
+            const refs = gen.ref_data.auto_refs;
+            const newSelectedTabs: string[] = [];
 
-      if (gen.ref_data.mode === 'manual') {
-        const files: File[] = [];
-        for (const ref of gen.ref_data.manual_refs) {
-          const f = await fetchFile(ref.url, ref.name, ref.type);
-          if (f) files.push(f);
-        }
-        setRefImages(files);
-      } else if (gen.ref_data.mode === 'automatic') {
-        // Restore Auto Inputs
-        const refs = gen.ref_data.auto_refs;
-        const newSelectedTabs: string[] = [];
+            if (refs.storyboard) {
+              const f = await fetchFile(refs.storyboard, "restored_storyboard.png");
+              setAutoStoryboardFile(f);
+              newSelectedTabs.push('storyboard');
+            }
+            if (refs.lighting) {
+              const f = await fetchFile(refs.lighting, "restored_lighting.png");
+              setAutoCompositionFile(f);
+              setAutoCompositionFile(f);
+              newSelectedTabs.push('composition');
+            }
+            newSelectedTabs.push('background');
+            if (refs.characters && refs.characters.length > 0) {
+              // Reset tabs to match count
+              const newTabs = refs.characters.map((_c, i) => ({
+                id: `char_restored_${Date.now()}_${i}`,
+                name: `Character ${i + 1}`,
+                file: null
+              }));
+              setCharacterTabs(newTabs);
 
-        if (refs.storyboard) {
-          const f = await fetchFile(refs.storyboard, "restored_storyboard.png");
-          setAutoStoryboardFile(f);
-          newSelectedTabs.push('storyboard');
-        }
-        if (refs.lighting) {
-          const f = await fetchFile(refs.lighting, "restored_lighting.png");
-          setAutoCompositionFile(f);
-          setAutoCompositionFile(f);
-          newSelectedTabs.push('composition');
-        }
-        newSelectedTabs.push('background');
-        if (refs.characters && refs.characters.length > 0) {
-          // Reset tabs to match count
-          const newTabs = refs.characters.map((_c, i) => ({
-            id: `char_restored_${Date.now()}_${i}`,
-            name: `Character ${i + 1}`,
-            file: null
-          }));
-          setCharacterTabs(newTabs);
+              const newFiles: { [id: string]: File | null } = {};
+              for (let i = 0; i < refs.characters.length; i++) {
+                const charRef = refs.characters[i];
+                const f = await fetchFile(charRef.url, charRef.name);
+                newFiles[newTabs[i].id] = f;
+                newSelectedTabs.push(newTabs[i].id);
+              }
+              setAutoCharacterFiles(newFiles);
+            }
+            setSelectedAutoTabs(newSelectedTabs);
+          } else if (gen.ref_data.mode === 'angles') {
+            const refs = gen.ref_data.auto_refs;
+            const inputs = gen.ref_data.angles_inputs;
 
-          const newFiles: { [id: string]: File | null } = {};
-          for (let i = 0; i < refs.characters.length; i++) {
-            const charRef = refs.characters[i];
-            const f = await fetchFile(charRef.url, charRef.name);
-            newFiles[newTabs[i].id] = f;
-            newSelectedTabs.push(newTabs[i].id);
+            if (inputs) {
+              setAnglesAngle(inputs.angle || '');
+              setAnglesLength(inputs.length || '');
+              setAnglesFocus(inputs.focus || '');
+              setAnglesBackground(inputs.background || '');
+            }
+
+            if (refs.angles_anchor) {
+              const f = await fetchFile(refs.angles_anchor, "restored_anchor.png");
+              setAnglesAnchorFile(f);
+            } else {
+              setAnglesAnchorFile(null);
+            }
+
+            if (refs.angles_target) {
+              const f = await fetchFile(refs.angles_target, "restored_target.png");
+              setAnglesTargetFile(f);
+            } else {
+              setAnglesTargetFile(null);
+            }
+          } else if (gen.ref_data.mode === 'storyboard_enhancer') {
+            // RESTORE ENHANCER MODE
+            if (gen.ref_data.auto_refs && gen.ref_data.auto_refs.storyboard) {
+              const f = await fetchFile(gen.ref_data.auto_refs.storyboard, "restored_storyboard.png");
+              setAutoStoryboardFile(f);
+              setSelectedAutoTabs(['storyboard']);
+            }
           }
-          setAutoCharacterFiles(newFiles);
         }
-        setSelectedAutoTabs(newSelectedTabs);
-      } else if (gen.ref_data.mode === 'angles') {
-        const refs = gen.ref_data.auto_refs;
-        const inputs = gen.ref_data.angles_inputs;
-
-        if (inputs) {
-          setAnglesAngle(inputs.angle || '');
-          setAnglesLength(inputs.length || '');
-          setAnglesFocus(inputs.focus || '');
-          setAnglesBackground(inputs.background || '');
-        }
-
-        if (refs.angles_anchor) {
-          const f = await fetchFile(refs.angles_anchor, "restored_anchor.png");
-          setAnglesAnchorFile(f);
-        } else {
-          setAnglesAnchorFile(null);
-        }
-
-        if (refs.angles_target) {
-          const f = await fetchFile(refs.angles_target, "restored_target.png");
-          setAnglesTargetFile(f);
-        } else {
-          setAnglesTargetFile(null);
-        }
-      } else if (gen.ref_data.mode === 'storyboard_enhancer') {
-        // RESTORE ENHANCER MODE
-        if (gen.ref_data.auto_refs && gen.ref_data.auto_refs.storyboard) {
-          const f = await fetchFile(gen.ref_data.auto_refs.storyboard, "restored_storyboard.png");
-          setAutoStoryboardFile(f);
-          setSelectedAutoTabs(['storyboard']);
-        }
-      }
-    }
+      },
+      'info'
+    );
   };
 
   const handleGenerate = async () => {
@@ -420,7 +427,7 @@ export const Workstation: React.FC = () => {
     // BACKGROUND GRID MODE HANDLER
     if (generationMode === 'background_grid') {
       if (!backgroundGridFile) {
-        alert("Please upload a base background image.");
+        dialog.alert('Error', "Please upload a base background image.", 'warning');
         return;
       }
       setIsGenerating(true);
@@ -430,7 +437,7 @@ export const Workstation: React.FC = () => {
         setIsBackgroundGridModalOpen(true);
       } catch (e: any) {
         const errMsg = e.response?.data?.detail || e.message || 'Unknown error';
-        alert(`Background Grid Generation failed: ${errMsg}`);
+        dialog.alert('Error', `Background Grid Generation failed: ${errMsg}`, 'danger');
       } finally {
         setIsGenerating(false);
       }
@@ -622,7 +629,7 @@ export const Workstation: React.FC = () => {
         // Remove optimistic item on error
         setGenerations(prev => prev.filter(g => g.id !== tempId));
         const errMsg = error.response?.data?.detail || error.message || 'Unknown error';
-        alert(`Failed to start generation: ${errMsg}`);
+        dialog.alert('Error', `Failed to start generation: ${errMsg}`, 'danger');
       });
 
       // Clear ref images immediately for next run
@@ -663,18 +670,23 @@ export const Workstation: React.FC = () => {
   const handlePromoteGeneration = async () => {
     if (!selectedGeneration) return;
 
-    if (!confirm("Promote this generation to a new version?")) return;
-
-    try {
-      const resp = await fetch(selectedGeneration.image_url);
-      const blob = await resp.blob();
-      const file = new File([blob], "generated_image.png", { type: "image/png" });
-
-      handleUpload({ target: { files: [file] } } as any);
-    } catch (err) {
-      console.error("Failed to promote generation", err);
-      alert("Failed to promote generation");
-    }
+    dialog.confirm(
+      "Promote Generation?",
+      "Promote this generation to a new version?",
+      async () => {
+        try {
+          const resp = await fetch(selectedGeneration.image_url);
+          const blob = await resp.blob();
+          const file = new File([blob], "generated_image.png", { type: "image/png" });
+    
+          handleUpload({ target: { files: [file] } } as any);
+        } catch (err) {
+          console.error("Failed to promote generation", err);
+          dialog.alert('Error', "Failed to promote generation", 'danger');
+        }
+      },
+      'info'
+    );
   };
 
   const handleApprovalClick = () => {

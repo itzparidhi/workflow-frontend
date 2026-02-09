@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import type { Scene, Shot } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { insertShotAtPosition, reorderShots, createStructureWithSequence } from '../api';
+import { insertShotAtPosition, reorderShots } from '../api';
 // import { Plus } from 'lucide-react';
 
 import {
@@ -25,6 +25,8 @@ import { useSortable } from '@dnd-kit/sortable';
 import { softDeleteShot } from '../api';
 import { Trash } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { DriveImage } from './DriveImage';
+import { useDialog } from '../context/DialogContext';
 
 interface SceneListProps {
   projectId: string;
@@ -32,6 +34,7 @@ interface SceneListProps {
 
 interface ShotWithStatus extends Shot {
   statusColor: 'gray' | 'yellow' | 'red' | 'green';
+  imageUrl?: string | null;
 }
 
 interface ShotCardProps {
@@ -132,9 +135,27 @@ const SortableShotCard: React.FC<ShotCardProps> = ({
             ${shot.statusColor === 'gray' ? 'bg-zinc-800' : ''}
           `}
         ></div>
-        <span className="text-sm font-medium truncate px-2 shot-text">
+        <span className={`text-sm font-medium truncate px-2 shot-text transition-opacity duration-300 ${shot.imageUrl ? 'group-hover:opacity-0' : ''}`}>
           {shot.name}
         </span>
+
+        {/* Hover Image Background */}
+        {shot.imageUrl && (
+            <div className="absolute inset-0 rounded-[20px] overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                <div className="w-full h-full bg-black">
+                    <DriveImage 
+                        src={shot.imageUrl}
+                        alt={shot.name}
+                        className="w-full h-full"
+                        imageClassName="object-cover w-full h-full opacity-80" // Slightly dimmed to keep shape
+                    />
+                </div>
+                {/* Optional Status Indicator overlaid */}
+                <div className={`absolute bottom-0 left-0 right-0 h-1 ${
+                    shot.statusColor === 'green' ? 'bg-green-500' : 'bg-zinc-600'
+                }`}></div>
+            </div>
+        )}
 
         {/* Drag Mode Indicator */}
         {isDragMode && (
@@ -163,7 +184,9 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
   const [shotsByScene, setShotsByScene] = useState<Record<string, ShotWithStatus[]>>({});
   const [creatingShotFor, setCreatingShotFor] = useState<string | null>(null);
   const navigate = useNavigate();
+
   const { userProfile } = useAuth();
+  const dialog = useDialog();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -219,24 +242,34 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
       .from('versions')
       .select('*, reviews(*)')
       .in('shot_id', shotIds)
-      .eq('is_active', true);
-
-
+      .order('version_number', { ascending: false });
 
     const shotsWithStatus: ShotWithStatus[] = activeShots.map(shot => {
-      const activeVersion = versionsData?.find(v => v.shot_id === shot.id);
+      const shotVersions = (versionsData?.filter(v => v.shot_id === shot.id) || []).sort((a, b) => b.version_number - a.version_number);
+      const activeVersion = shotVersions.find(v => v.is_active);
+      const latestVersion = shotVersions[0];
+
       let color: 'gray' | 'yellow' | 'red' | 'green' = 'gray';
+      let imageUrl: string | null = null;
 
       if (activeVersion) {
         const review = activeVersion.reviews?.[0] || (activeVersion as any).reviews;
         const r = Array.isArray(review) ? review[0] : review;
 
-        if (r?.cd_vote === true) color = 'green';
+        if (r?.cd_vote === true) {
+             color = 'green';
+             imageUrl = activeVersion.gdrive_link;
+        }
         else if (r?.cd_vote === false || r?.pm_vote === false) color = 'red';
         else color = 'yellow';
       }
 
-      return { ...shot, statusColor: color };
+      // If not approved (green), show latest version image
+      if (color !== 'green' && latestVersion) {
+        imageUrl = latestVersion.gdrive_link || latestVersion.public_link;
+      }
+
+      return { ...shot, statusColor: color, imageUrl };
     });
 
     setShotsByScene(prev => ({ ...prev, [sceneId]: shotsWithStatus }));
@@ -265,7 +298,7 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
       await fetchShotsForScene(sceneId);
     } catch (err) {
       console.error('Error creating shot:', err);
-      alert('Failed to create shot');
+      dialog.alert('Error', 'Failed to create shot', 'danger');
     } finally {
       setCreatingShotFor(null);
     }
@@ -273,19 +306,25 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
 
   const handleSoftDelete = async (e: React.MouseEvent, shotId: string, sceneId: string) => {
     e.stopPropagation();
-    if (!window.confirm("Are you sure you want to move this shot to the trash?")) return;
-
-    try {
-      await softDeleteShot(shotId);
-      // Optimistic update
-      setShotsByScene(prev => ({
-        ...prev,
-        [sceneId]: prev[sceneId].filter(s => s.id !== shotId)
-      }));
-    } catch (err: any) {
-      console.error("Failed to delete shot:", err);
-      alert(err.response?.data?.detail || "Failed to delete shot");
-    }
+    
+    dialog.confirm(
+        "Delete Shot?", 
+        "Are you sure you want to move this shot to the trash?", 
+        async () => {
+            try {
+              await softDeleteShot(shotId);
+              // Optimistic update
+              setShotsByScene(prev => ({
+                ...prev,
+                [sceneId]: prev[sceneId].filter(s => s.id !== shotId)
+              }));
+            } catch (err: any) {
+              console.error("Failed to delete shot:", err);
+              dialog.alert("Error", err.response?.data?.detail || "Failed to delete shot", 'danger');
+            }
+        },
+        'danger'
+    );
   };
 
   const handleInsertShot = async (sceneId: string, beforeSequence: number) => {
@@ -309,7 +348,7 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
       await renumberShots(sceneId);
     } catch (err) {
       console.error('Error inserting shot:', err);
-      alert('Failed to insert shot');
+      dialog.alert('Error', 'Failed to insert shot', 'danger');
     } finally {
       setCreatingShotFor(null);
     }
@@ -348,23 +387,32 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
       await fetchShotsForScene(sceneId);
     } catch (err) {
       console.error('Error reordering shots:', err);
-      alert('Failed to reorder shots');
+      dialog.alert('Error', 'Failed to reorder shots', 'danger');
       // Revert on error
       await fetchShotsForScene(sceneId);
     }
   };
 
   const renumberShots = async (sceneId: string) => {
-    const shots = shotsByScene[sceneId];
-    if (!shots) return;
+    try {
+      // Fetch fresh shots from database
+      const { data: shots } = await supabase
+        .from('shots')
+        .select('*')
+        .eq('scene_id', sceneId)
+        .eq('is_deleted', false)
+        .order('sequence', { ascending: true });
 
+      if (!shots || shots.length === 0) return;
+
+      // Renumber shots based on their current sequence order
     const updatedShots = shots.map((shot, index) => ({
       id: shot.id,
       sequence: index,
       name: `Shot_${index + 1}`,
     }));
 
-    try {
+
       // Update names and sequences in DB
       for (const shot of updatedShots) {
         await supabase
@@ -372,7 +420,7 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
           .update({ name: shot.name, sequence: shot.sequence })
           .eq('id', shot.id);
       }
-
+    // Refresh the UI
       await fetchShotsForScene(sceneId);
     } catch (err) {
       console.error('Error renumbering shots:', err);
@@ -408,7 +456,7 @@ export const SceneList: React.FC<SceneListProps> = ({ projectId }) => {
                     onNavigate={() => navigate(`/shot/${shot.id}`)}
                     onInsertBefore={handleInsertShot}
                     onDelete={(e) => handleSoftDelete(e, shot.id, scene.id)}
-                    isDeleteEnabled={userProfile?.role === 'CD'}
+                    isDeleteEnabled={userProfile?.role === 'CD' || userProfile?.role === 'PM'}
                     sceneId={scene.id}
                   />
                 ))}

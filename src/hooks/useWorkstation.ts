@@ -4,11 +4,13 @@ import { supabase } from '../supabaseClient';
 import type { Shot, Version, Review } from '../types';
 import { useAuth } from '../context/AuthContext';
 
+import { useDialog } from '../context/DialogContext';
 import { uploadAsset } from '../api';
 
 export const useWorkstation = () => {
   const { shotId } = useParams<{ shotId: string }>();
   const { userProfile } = useAuth();
+  const dialog = useDialog();
 
   const [shot, setShot] = useState<Shot | null>(null);
   const [versions, setVersions] = useState<Version[]>([]);
@@ -108,7 +110,7 @@ export const useWorkstation = () => {
       fetchShotData();
     } catch (err) {
       console.error(`${type} upload failed:`, err);
-      alert(`${type} upload failed`);
+      dialog.alert('Error', `${type} upload failed`, 'danger');
     } finally {
       setUploadingRefs(prev => ({ ...prev, [type]: false }));
     }
@@ -176,10 +178,10 @@ export const useWorkstation = () => {
           folder_id: shot.gdrive_folder_id,
           shot_name: shot.name
         });
-        alert('Version approved and synced to Drive!');
+        dialog.alert('Success', 'Version approved and synced to Drive!', 'success');
       } catch (err) {
         console.error('Failed to sync Approved version to Drive:', err);
-        alert('Approved, but failed to sync to Drive. Check logs.');
+        dialog.alert('Warning', 'Approved, but failed to sync to Drive. Check logs.', 'warning');
       }
     }
 
@@ -226,7 +228,7 @@ export const useWorkstation = () => {
         imageUrl = publicUrl;
       } catch (err) {
         console.error('Review image upload failed:', err);
-        alert('Failed to upload image, saving text only.');
+        dialog.alert('Warning', 'Failed to upload image, saving text only.', 'warning');
       } finally {
         setUploading(false);
       }
@@ -245,9 +247,9 @@ export const useWorkstation = () => {
 
     if (error) {
       console.error('Error saving comment:', error);
-      alert('Failed to save comment');
+      dialog.alert('Error', 'Failed to save comment', 'danger');
     } else {
-      alert('Review saved!');
+      dialog.alert('Success', 'Review saved!', 'success');
       notifyPE('review');
     }
   };
