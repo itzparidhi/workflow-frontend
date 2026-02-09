@@ -1,7 +1,14 @@
-import React from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronDown, ChevronRight, User } from 'lucide-react';
 import { DriveImage } from '../DriveImage';
+import { supabase } from '../../supabaseClient';
 import type { Shot, UserProfile } from '../../types';
+
+interface Character {
+    id: string;
+    name: string;
+    gdrive_link: string;
+}
 
 interface ReferencePanelProps {
     shot: Shot;
@@ -17,6 +24,9 @@ interface ReferencePanelProps {
     setZoomLevel: (level: number) => void;
     navigate: (path: number) => void;
     isGenerating: boolean;
+    projectId: string | null;
+    selectedBackgroundUrl: string | null;
+    setSelectedBackgroundUrl: (url: string | null) => void;
 }
 
 export const ReferencePanel: React.FC<ReferencePanelProps> = ({
@@ -30,12 +40,45 @@ export const ReferencePanel: React.FC<ReferencePanelProps> = ({
     setZoomLevel,
     navigate,
     isGenerating,
+    projectId,
+    selectedBackgroundUrl,
+    setSelectedBackgroundUrl,
 }) => {
+    const [characters, setCharacters] = useState<Character[]>([]);
+
+    // Fetch character resources from the project
+    useEffect(() => {
+        const fetchCharacters = async () => {
+            if (!projectId) return;
+
+            const { data } = await supabase
+                .from('resources')
+                .select('id, name, gdrive_link')
+                .eq('project_id', projectId)
+                .eq('type', 'character');
+
+            if (data) setCharacters(data);
+        };
+
+        fetchCharacters();
+    }, [projectId]);
+
     const handleFullScreen = (url: string | null) => {
         if (url) {
             setFullScreenImage(url);
             setZoomLevel(1);
         }
+    };
+
+    const getPreviewUrl = (gdriveLink: string) => {
+        // Supabase or Direct URL check
+        if (gdriveLink.includes('supabase.co') || gdriveLink.startsWith('http')) return gdriveLink;
+
+        const match = gdriveLink.match(/\/d\/([^\/]+)/);
+        if (match) {
+            return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
+        }
+        return gdriveLink.replace('/view', '/preview');
     };
 
     return (
@@ -77,57 +120,56 @@ export const ReferencePanel: React.FC<ReferencePanelProps> = ({
                 )}
             </div>
 
-            {/* References Accordions */}
-            <div className="space-y-2 mb-1">
-                {[ 
-                    { id: 'style', title: 'Character Reference', url: shot.style_url, loading: uploadingRefs.style },
-                ].map((ref) => (
-                    <div key={ref.id} className="border border-zinc-700 rounded bg-zinc-800/30 overflow-hidden">
-                        <button
-                            onClick={() => toggleAccordion(ref.id)}
-                            className="w-full flex items-center justify-between p-3 hover:bg-zinc-800 transition-colors"
-                        >
-                            <span className="text-xs font-bold text-zinc-400 flex items-center gap-2">
-                                {openAccordion === ref.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                {ref.title}
-                            </span>
-                            {ref.url && <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>}
-                        </button>
+            {/* Characters Accordion */}
+            <div className="border border-zinc-700 rounded bg-zinc-800/30 overflow-hidden mb-1">
+                <button
+                    onClick={() => toggleAccordion('characters')}
+                    className="w-full flex items-center justify-between p-3 hover:bg-zinc-800 transition-colors"
+                >
+                    <span className="text-xs font-bold text-zinc-400 flex items-center gap-2">
+                        {openAccordion === 'characters' ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        <User size={14} />
+                        Characters
+                    </span>
+                    {characters.length > 0 && (
+                        <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full">
+                            {characters.length}
+                        </span>
+                    )}
+                </button>
 
-                        {openAccordion === ref.id && (
-                            <div className="p-3 border-t border-zinc-700 bg-zinc-900/50">
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="text-[10px] uppercase font-bold text-zinc-500">Reference Image</span>
-                                    {(userProfile?.role === 'CD' || userProfile?.role === 'PM') && (
-                                        <label className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2 py-1 rounded cursor-pointer border border-zinc-600">
-                                            {ref.loading ? '...' : 'Upload'}
-                                            <input
-                                                type="file"
-                                                className="hidden"
-                                                onChange={(e) => handleReferenceUpload(e, ref.id as any)}
-                                                disabled={ref.loading || isGenerating}
-                                                accept="image/*"
-                                            />
-                                        </label>
-                                    )}
-                                </div>
-
-                                {ref.url ? (
+                {openAccordion === 'characters' && (
+                    <div className="p-3 border-t border-zinc-700 bg-zinc-900/50">
+                        {characters.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-2">
+                                {characters.map((character) => (
                                     <div
-                                        className="w-full rounded border border-zinc-700 cursor-zoom-in overflow-hidden"
-                                        onClick={() => handleFullScreen(ref.url)}
+                                        key={character.id}
+                                        className="relative aspect-square rounded border border-zinc-700 cursor-zoom-in overflow-hidden group"
+                                        onClick={() => handleFullScreen(getPreviewUrl(character.gdrive_link))}
                                     >
-                                        <DriveImage src={ref.url} alt={ref.title} className="w-full" />
+                                        <img
+                                            src={getPreviewUrl(character.gdrive_link)}
+                                            alt={character.name}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                e.currentTarget.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect fill="%23333" width="200" height="200"/><text fill="%23999" x="50%" y="50%" text-anchor="middle" dy=".3em">No Image</text></svg>';
+                                            }}
+                                        />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 backdrop-blur-sm p-1.5">
+                                            <p className="text-[10px] text-white font-medium truncate">{character.name}</p>
+                                        </div>
                                     </div>
-                                ) : (
-                                    <div className="aspect-video flex items-center justify-center bg-zinc-800 rounded border border-zinc-700 border-dashed text-zinc-600 text-xs">
-                                        No Reference
-                                    </div>
-                                )}
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-4 text-zinc-600 text-xs italic">
+                                No characters yet. <br /> Add characters in the Resources panel.
                             </div>
                         )}
                     </div>
-                ))}
+                )}
             </div>
 
             {/* Background References Accordion */}
@@ -154,10 +196,27 @@ export const ReferencePanel: React.FC<ReferencePanelProps> = ({
                                 {shot.background_urls.map((url, idx) => (
                                     <div
                                         key={idx}
-                                        className="relative aspect-square rounded border border-zinc-700 cursor-zoom-in overflow-hidden group"
+                                        className={`
+                                            relative aspect-square rounded border cursor-pointer overflow-hidden group transition-all
+                                            ${selectedBackgroundUrl === url
+                                                ? 'border-[#FFFFF0] ring-2 ring-[#FFFFF0]/50' // Ivory highlight
+                                                : 'border-zinc-700 hover:border-zinc-500'
+                                            }
+                                        `}
                                         onClick={() => setFullScreenImage(url)}
+                                        onDoubleClick={(e) => {
+                                            e.stopPropagation();
+                                            // Toggle selection
+                                            setSelectedBackgroundUrl(selectedBackgroundUrl === url ? null : url);
+                                        }}
                                     >
                                         <img src={url} alt={`Background ${idx + 1}`} className="w-full h-full object-cover" />
+
+                                        {/* Selection Indicator Overlay */}
+                                        {selectedBackgroundUrl === url && (
+                                            <div className="absolute inset-0 border-4 border-[#FFFFF0] pointer-events-none" />
+                                        )}
+
                                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                                     </div>
                                 ))}

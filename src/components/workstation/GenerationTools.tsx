@@ -76,10 +76,13 @@ interface GenerationToolsProps {
     handleBackgroundGridUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
     // Project ID for character resources
     projectId: string | null;
-    // Character mention in manual mode
+    // Character mention
     showCharacterModalFromMention?: boolean;
     onCharacterMentionSelect?: (characters: any[]) => void;
     onCloseCharacterMention?: () => void;
+    // New: Selected Characters for Auto Mode
+    selectedCharacters: any[];
+    setSelectedCharacters: (chars: any[]) => void;
 }
 
 const GenerateButton: React.FC<{ onGenerate: () => void; isGenerating: boolean }> = ({ onGenerate, isGenerating }) => {
@@ -87,7 +90,7 @@ const GenerateButton: React.FC<{ onGenerate: () => void; isGenerating: boolean }
 
     const handleClick = () => {
         if (cooldown || isGenerating) return;
-        
+
         onGenerate();
         setCooldown(true);
         setTimeout(() => setCooldown(false), 5000);
@@ -176,10 +179,12 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
     // Character mention
     showCharacterModalFromMention,
     onCharacterMentionSelect,
-    onCloseCharacterMention
+    onCloseCharacterMention,
+    // New Props
+    selectedCharacters,
+    setSelectedCharacters
 }) => {
     // Character selection state
-    const [selectedCharacters, setSelectedCharacters] = useState<any[]>([]);
     const [showCharacterModal, setShowCharacterModal] = useState(false);
 
     const handleCharacterSelect = (characters: any[]) => {
@@ -187,8 +192,9 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
     };
 
     const removeCharacter = (id: string) => {
-        setSelectedCharacters(prev => prev.filter(c => c.id !== id));
+        setSelectedCharacters(selectedCharacters.filter(c => c.id !== id));
     };
+
 
     const getPreviewUrl = (gdriveLink: string) => {
         const match = gdriveLink.match(/\/d\/([^\/]+)/);
@@ -246,37 +252,37 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                     <h3 className="text-lg whitespace-nowrap">AI Generation</h3>
                 </div>
 
-                    {/* Generation Mode Dropdown (inline with title) */}
-                    <div className="w-28 relative">
-                        <select
-                            value={generationMode}
-                            onChange={(e) => setGenerationMode(e.target.value as any)}
-                            className="w-full bg-black/40 text-xs font-bold text-zinc-300 border border-white/10 rounded-md py-1 pl-2 pr-6 appearance-none focus:outline-none focus:ring-1 focus:ring-zinc-600 cursor-pointer  tracking-wider"
-                        >
-                            <option value="manual">Manual</option>
-                            <option value="automatic">Automatic</option>
-                            <option value="storyboard_enhancer">S.B Enhancer</option>
-                            <option value="angles">Angles</option>
-                            <option value="background_grid">Background Grid</option>
-                        </select>
-                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={7} />
-                    </div>
+                {/* Generation Mode Dropdown (inline with title) */}
+                <div className="w-28 relative">
+                    <select
+                        value={generationMode}
+                        onChange={(e) => setGenerationMode(e.target.value as any)}
+                        className="w-full bg-black/40 text-xs font-bold text-zinc-300 border border-white/10 rounded-md py-1 pl-2 pr-6 appearance-none focus:outline-none focus:ring-1 focus:ring-zinc-600 cursor-pointer  tracking-wider"
+                    >
+                        <option value="manual">Manual</option>
+                        <option value="automatic">Automatic</option>
+                        <option value="storyboard_enhancer">S.B Enhancer</option>
+                        <option value="angles">Angles</option>
+                        <option value="background_grid">Background Grid</option>
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={7} />
                 </div>
+            </div>
 
-                {/* Prompt / Automatic / Angles Inputs */}
-                <div className="relative">
-                    {generationMode === 'manual' ? (
-                        <>
-                            <label className="text-xs text-zinc-500 block mb-1">Prompt</label>
-                            <textarea
-                                ref={textareaRef}
-                                value={prompt}
-                                onChange={handlePromptChange}
-                                onDragOver={handleDragOver}
-                                onDrop={handleDropRef}
-                                className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-white-500 resize-none h-20 placeholder-zinc-600 mb-2"
-                                placeholder="Describe the shot... Use @img1 to reference uploads, @ch for characters."
-                            />
+            {/* Prompt / Automatic / Angles Inputs */}
+            <div className="relative">
+                {generationMode === 'manual' ? (
+                    <>
+                        <label className="text-xs text-zinc-500 block mb-1">Prompt</label>
+                        <textarea
+                            ref={textareaRef}
+                            value={prompt}
+                            onChange={handlePromptChange}
+                            onDragOver={handleDragOver}
+                            onDrop={handleDropRef}
+                            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-white-500 resize-none h-20 placeholder-zinc-600 mb-2"
+                            placeholder="Describe the shot... Use @img1 to reference uploads, @ch for characters."
+                        />
 
                         {/* Tag Autocomplete Menu */}
                         {showTagMenu && refImages.length > 0 && (
@@ -294,7 +300,7 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                             </div>
                         )}
 
-                            {/* Reference Image Preview Area */}
+                        {/* Reference Image Preview Area */}
                         {refImages.length > 0 && (
                             <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
                                 {refImages.map((file, idx) => (
@@ -325,288 +331,288 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                             <input type="file" multiple accept="image/*" className="hidden" ref={refInputRef} onChange={handleRefImageSelect} />
                         </div>
                     </>
-                    ) : generationMode === 'angles' ? (
-                        <div className="space-y-4">
-                            <div className="flex flex-col space-y-3">
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Angle</label>
-                                        <input
-                                            type="text"
-                                            value={anglesAngle}
-                                            onChange={(e) => setAnglesAngle(e.target.value)}
-                                            placeholder="e.g. front shot"
-                                            className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-500/50 placeholder-zinc-700"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Length</label>
-                                        <input
-                                            type="text"
-                                            value={anglesLength}
-                                            onChange={(e) => setAnglesLength(e.target.value)}
-                                            placeholder="e.g. closeup"
-                                            className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-500/50 placeholder-zinc-700"
-                                        />
-                                    </div>
-                                </div>
+                ) : generationMode === 'angles' ? (
+                    <div className="space-y-4">
+                        <div className="flex flex-col space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Focus On</label>
+                                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Angle</label>
                                     <input
                                         type="text"
-                                        value={anglesFocus}
-                                        onChange={(e) => setAnglesFocus(e.target.value)}
-                                        placeholder="e.g. mom looking at son"
+                                        value={anglesAngle}
+                                        onChange={(e) => setAnglesAngle(e.target.value)}
+                                        placeholder="e.g. front shot"
                                         className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-500/50 placeholder-zinc-700"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Background Details</label>
-                                    <textarea
-                                        value={anglesBackground}
-                                        onChange={(e) => setAnglesBackground(e.target.value)}
-                                        placeholder="e.g. half window and lamp"
-                                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-500/50 resize-none h-16 placeholder-zinc-700"
+                                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Length</label>
+                                    <input
+                                        type="text"
+                                        value={anglesLength}
+                                        onChange={(e) => setAnglesLength(e.target.value)}
+                                        placeholder="e.g. closeup"
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-500/50 placeholder-zinc-700"
                                     />
                                 </div>
                             </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Focus On</label>
+                                <input
+                                    type="text"
+                                    value={anglesFocus}
+                                    onChange={(e) => setAnglesFocus(e.target.value)}
+                                    placeholder="e.g. mom looking at son"
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-500/50 placeholder-zinc-700"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Background Details</label>
+                                <textarea
+                                    value={anglesBackground}
+                                    onChange={(e) => setAnglesBackground(e.target.value)}
+                                    placeholder="e.g. half window and lamp"
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-500/50 resize-none h-16 placeholder-zinc-700"
+                                />
+                            </div>
+                        </div>
 
-                            <div className="flex gap-2">
-                                {/* Anchor Image Tab */}
-                                <button
-                                    onClick={() => { }} // No tab toggle needed for fixed inputs
-                                    onDoubleClick={() => fileInputRefs.anglesAnchor.current?.click()}
-                                    onDragOver={onButtonDragOver}
-                                    onDrop={(e) => onDropFile(e, setAnglesAnchorFile)}
-                                    className={`
+                        <div className="flex gap-2">
+                            {/* Anchor Image Tab */}
+                            <button
+                                onClick={() => { }} // No tab toggle needed for fixed inputs
+                                onDoubleClick={() => fileInputRefs.anglesAnchor.current?.click()}
+                                onDragOver={onButtonDragOver}
+                                onDrop={(e) => onDropFile(e, setAnglesAnchorFile)}
+                                className={`
                                         w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
                                         ${anglesAnchorFile ? 'bg-zinc-800 border-white text-white shadow-lg' : 'bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-400'}
                                     `}
-                                >
-                                    <input
-                                        type="file"
-                                        ref={fileInputRefs.anglesAnchor}
-                                        className="hidden"
-                                        onChange={handleAnglesAnchorUpload}
-                                        accept="image/*"
-                                    />
-                                    
-                                    {/* Icon Top-Left */}
-                                    <div className="z-20">
-                                        <ImageIcon size={18} className={anglesAnchorFile ? 'fill-current' : ''} />
+                            >
+                                <input
+                                    type="file"
+                                    ref={fileInputRefs.anglesAnchor}
+                                    className="hidden"
+                                    onChange={handleAnglesAnchorUpload}
+                                    accept="image/*"
+                                />
+
+                                {/* Icon Top-Left */}
+                                <div className="z-20">
+                                    <ImageIcon size={18} className={anglesAnchorFile ? 'fill-current' : ''} />
+                                </div>
+
+                                {/* Label Bottom-Left */}
+                                <span className="text-[10px] font-bold tracking-wider text-left z-20 w-full">Anchor Img</span>
+
+                                {/* Hover Overlay */}
+                                <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
+                                    <span className="text-[8px] text-zinc-300 font-mono text-center px-1">Drop or Select File</span>
+                                </div>
+
+                                {/* Content Background */}
+                                {anglesAnchorFile && (
+                                    <div className="absolute inset-0 z-10 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
+                                        <img
+                                            src={URL.createObjectURL(anglesAnchorFile)}
+                                            className="w-full h-full object-cover"
+                                            alt=""
+                                            onError={(e) => e.currentTarget.style.display = 'none'}
+                                        />
                                     </div>
+                                )}
+                            </button>
 
-                                    {/* Label Bottom-Left */}
-                                    <span className="text-[10px] font-bold tracking-wider text-left z-20 w-full">Anchor Img</span>
-
-                                    {/* Hover Overlay */}
-                                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
-                                        <span className="text-[8px] text-zinc-300 font-mono text-center px-1">Drop or Select File</span>
-                                    </div>
-
-                                    {/* Content Background */}
-                                    {anglesAnchorFile && (
-                                        <div className="absolute inset-0 z-10 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
-                                            <img
-                                                src={URL.createObjectURL(anglesAnchorFile)}
-                                                className="w-full h-full object-cover"
-                                                alt=""
-                                                onError={(e) => e.currentTarget.style.display = 'none'}
-                                            />
-                                        </div>
-                                    )}
-                                </button>
-
-                                {/* Target Image Tab */}
-                                <button
-                                    onClick={() => { }}
-                                    onDoubleClick={() => fileInputRefs.anglesTarget.current?.click()}
-                                    onDragOver={onButtonDragOver}
-                                    onDrop={(e) => onDropFile(e, setAnglesTargetFile)}
-                                    className={`
+                            {/* Target Image Tab */}
+                            <button
+                                onClick={() => { }}
+                                onDoubleClick={() => fileInputRefs.anglesTarget.current?.click()}
+                                onDragOver={onButtonDragOver}
+                                onDrop={(e) => onDropFile(e, setAnglesTargetFile)}
+                                className={`
                                         w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
                                         ${anglesTargetFile ? 'bg-zinc-800 border-white text-white shadow-lg' : 'bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-400'}
                                     `}
-                                >
-                                    <input
-                                        type="file"
-                                        ref={fileInputRefs.anglesTarget}
-                                        className="hidden"
-                                        onChange={handleAnglesTargetUpload}
-                                        accept="image/*"
-                                    />
-                                    
-                                    {/* Icon Top-Left */}
-                                    <div className="z-20">
-                                        <Target size={18} className={anglesTargetFile ? 'fill-current' : ''} />
+                            >
+                                <input
+                                    type="file"
+                                    ref={fileInputRefs.anglesTarget}
+                                    className="hidden"
+                                    onChange={handleAnglesTargetUpload}
+                                    accept="image/*"
+                                />
+
+                                {/* Icon Top-Left */}
+                                <div className="z-20">
+                                    <Target size={18} className={anglesTargetFile ? 'fill-current' : ''} />
+                                </div>
+
+                                {/* Label Bottom-Left */}
+                                <span className="text-[10px] font-bold tracking-wider text-left z-20 w-full">Target Img</span>
+
+                                {/* Hover Overlay */}
+                                <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
+                                    <span className="text-[8px] text-zinc-300 font-mono text-center px-1">Drop or Select File</span>
+                                </div>
+
+                                {/* Content Background */}
+                                {anglesTargetFile && (
+                                    <div className="absolute inset-0 z-10 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
+                                        <img
+                                            src={URL.createObjectURL(anglesTargetFile)}
+                                            className="w-full h-full object-cover"
+                                            alt=""
+                                            onError={(e) => e.currentTarget.style.display = 'none'}
+                                        />
                                     </div>
-
-                                    {/* Label Bottom-Left */}
-                                    <span className="text-[10px] font-bold tracking-wider text-left z-20 w-full">Target Img</span>
-
-                                    {/* Hover Overlay */}
-                                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
-                                        <span className="text-[8px] text-zinc-300 font-mono text-center px-1">Drop or Select File</span>
-                                    </div>
-
-                                    {/* Content Background */}
-                                    {anglesTargetFile && (
-                                        <div className="absolute inset-0 z-10 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
-                                            <img
-                                                src={URL.createObjectURL(anglesTargetFile)}
-                                                className="w-full h-full object-cover"
-                                                alt=""
-                                                onError={(e) => e.currentTarget.style.display = 'none'}
-                                            />
-                                        </div>
-                                    )}
-                                </button>
-                            </div>
-                            <p className="text-[10px] text-zinc-500 italic text-center">* Double-click to upload images</p>
+                                )}
+                            </button>
                         </div>
-                    ) : generationMode === 'storyboard_enhancer' ? (
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center mb-1">
-                                <label className="text-xs text-zinc-500">Enhancer Inputs</label>
-                            </div>
+                        <p className="text-[10px] text-zinc-500 italic text-center">* Double-click to upload images</p>
+                    </div>
+                ) : generationMode === 'storyboard_enhancer' ? (
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="text-xs text-zinc-500">Enhancer Inputs</label>
+                        </div>
 
-                            <div className="flex gap-2 mb-2">
-                                {/* Storyboard Tab for Enhancer */}
-                                <button
-                                    onClick={() => {
-                                        // Enhancer mode: selection is implicit or simplified
-                                        if (!selectedAutoTabs.includes('storyboard')) {
-                                            setSelectedAutoTabs(['storyboard']);
-                                        }
-                                    }}
-                                    onDoubleClick={() => fileInputRefs.storyboard.current?.click()}
-                                    onDragOver={onButtonDragOver}
-                                    onDrop={(e) => onDropFile(e, setAutoStoryboardFile)}
-                                    className={`
+                        <div className="flex gap-2 mb-2">
+                            {/* Storyboard Tab for Enhancer */}
+                            <button
+                                onClick={() => {
+                                    // Enhancer mode: selection is implicit or simplified
+                                    if (!selectedAutoTabs.includes('storyboard')) {
+                                        setSelectedAutoTabs(['storyboard']);
+                                    }
+                                }}
+                                onDoubleClick={() => fileInputRefs.storyboard.current?.click()}
+                                onDragOver={onButtonDragOver}
+                                onDrop={(e) => onDropFile(e, setAutoStoryboardFile)}
+                                className={`
                     w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
                     ${selectedAutoTabs.includes('storyboard')
-                                            ? 'bg-zinc-800 border-white text-white shadow-lg'
-                                            : 'bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-400'
-                                        }
+                                        ? 'bg-zinc-800 border-white text-white shadow-lg'
+                                        : 'bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-400'
+                                    }
                     `}
-                                >
-                                    <input
-                                        type="file"
-                                        ref={fileInputRefs.storyboard}
-                                        className="hidden"
-                                        onChange={handleAutoStoryboardUpload}
-                                        accept="image/*"
-                                    />
-                                    
-                                    {/* Icon Top-Left */}
-                                    <div className="z-20">
-                                        <Star size={18} className={selectedAutoTabs.includes('storyboard') ? 'fill-current' : ''} />
-                                    </div>
-
-                                    {/* Label Bottom-Left */}
-                                    <span className="text-[10px] font-bold tracking-wider text-left z-20 w-full">Storyboard</span>
-
-                                    {/* Hover Overlay */}
-                                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
-                                        <span className="text-[8px] text-zinc-300 font-mono text-center px-1">Drop or Select File</span>
-                                    </div>
-
-                                    {/* Content Background */}
-                                    {(autoStoryboardFile || shot.storyboard_url) && (
-                                        <div className="absolute inset-0 z-10 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
-                                            <img
-                                                src={autoStoryboardFile ? URL.createObjectURL(autoStoryboardFile) : shot.storyboard_url || undefined}
-                                                className="w-full h-full object-cover"
-                                                alt=""
-                                                onError={(e) => e.currentTarget.style.display = 'none'}
-                                            />
-                                        </div>
-                                    )}
-                                </button>
-                            </div>
-
-                            {/* Additional Context Input (Moved Below) */}
-                            <div className="mb-2">
-                                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider block mb-1 pl-1">Additional Context</label>
-                                <textarea
-                                    value={prompt}
-                                    onChange={handlePromptChange}
-                                    placeholder="Add context to refine the generation..."
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-[10px] text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-600/50 resize-none h-12 placeholder-zinc-700 shadow-inner leading-tight"
+                            >
+                                <input
+                                    type="file"
+                                    ref={fileInputRefs.storyboard}
+                                    className="hidden"
+                                    onChange={handleAutoStoryboardUpload}
+                                    accept="image/*"
                                 />
-                            </div>
 
-                            <p className="text-[10px] text-zinc-500 italic text-center">* Double-click to upload custom storyboard</p>
+                                {/* Icon Top-Left */}
+                                <div className="z-20">
+                                    <Star size={18} className={selectedAutoTabs.includes('storyboard') ? 'fill-current' : ''} />
+                                </div>
+
+                                {/* Label Bottom-Left */}
+                                <span className="text-[10px] font-bold tracking-wider text-left z-20 w-full">Storyboard</span>
+
+                                {/* Hover Overlay */}
+                                <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
+                                    <span className="text-[8px] text-zinc-300 font-mono text-center px-1">Drop or Select File</span>
+                                </div>
+
+                                {/* Content Background */}
+                                {(autoStoryboardFile || shot.storyboard_url) && (
+                                    <div className="absolute inset-0 z-10 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
+                                        <img
+                                            src={autoStoryboardFile ? URL.createObjectURL(autoStoryboardFile) : shot.storyboard_url || undefined}
+                                            className="w-full h-full object-cover"
+                                            alt=""
+                                            onError={(e) => e.currentTarget.style.display = 'none'}
+                                        />
+                                    </div>
+                                )}
+                            </button>
                         </div>
-                    ) : generationMode === 'background_grid' ? (
-                        <div className="space-y-4">
-                            <div className="flex flex-col space-y-3">
-                                <div>
-                                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Base Background</label>
-                                    <button
-                                        onClick={() => { }}
-                                        onDoubleClick={() => fileInputRefs.backgroundGrid?.current?.click()}
-                                        onDragOver={onButtonDragOver}
-                                        onDrop={(e) => onDropFile(e, setBackgroundGridFile)}
-                                        className={`
+
+                        {/* Additional Context Input (Moved Below) */}
+                        <div className="mb-2">
+                            <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider block mb-1 pl-1">Additional Context</label>
+                            <textarea
+                                value={prompt}
+                                onChange={handlePromptChange}
+                                placeholder="Add context to refine the generation..."
+                                className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-[10px] text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-600/50 resize-none h-12 placeholder-zinc-700 shadow-inner leading-tight"
+                            />
+                        </div>
+
+                        <p className="text-[10px] text-zinc-500 italic text-center">* Double-click to upload custom storyboard</p>
+                    </div>
+                ) : generationMode === 'background_grid' ? (
+                    <div className="space-y-4">
+                        <div className="flex flex-col space-y-3">
+                            <div>
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Base Background</label>
+                                <button
+                                    onClick={() => { }}
+                                    onDoubleClick={() => fileInputRefs.backgroundGrid?.current?.click()}
+                                    onDragOver={onButtonDragOver}
+                                    onDrop={(e) => onDropFile(e, setBackgroundGridFile)}
+                                    className={`
                                             w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
                                             ${backgroundGridFile ? 'bg-zinc-800 border-white text-white shadow-lg' : 'bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-400'}
                                         `}
-                                    >
-                                        <input
-                                            type="file"
-                                            ref={fileInputRefs.backgroundGrid}
-                                            className="hidden"
-                                            onChange={handleBackgroundGridUpload}
-                                            accept="image/*"
-                                        />
-                                        
-                                        {/* Icon Top-Left */}
-                                        <div className="z-20">
-                                            <ImagePlus size={18} className={backgroundGridFile ? 'fill-current' : ''} />
-                                        </div>
-
-                                        {/* Label Bottom-Left */}
-                                        <span className="text-[10px] font-bold tracking-wider text-left z-20 w-full">Base Background</span>
-
-                                        {/* Hover Overlay */}
-                                        <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
-                                            <span className="text-[8px] text-zinc-300 font-mono text-center px-1">Drop or Select File</span>
-                                        </div>
-
-                                        {/* Content Background */}
-                                        {backgroundGridFile && (
-                                            <div className="absolute inset-0 z-10 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
-                                                <img
-                                                    src={URL.createObjectURL(backgroundGridFile)}
-                                                    className="w-full h-full object-cover"
-                                                    alt=""
-                                                    onError={(e) => e.currentTarget.style.display = 'none'}
-                                                />
-                                            </div>
-                                        )}
-                                    </button>
-                                </div>
-
-                                <div className="mb-2">
-                                    <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider block mb-1 pl-1">Context (Optional)</label>
-                                    <textarea
-                                        value={prompt}
-                                        onChange={handlePromptChange}
-                                        placeholder="Add context (e.g. 'Cyberpunk city street')..."
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-[10px] text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-600/50 resize-none h-16 placeholder-zinc-700 shadow-inner leading-tight"
+                                >
+                                    <input
+                                        type="file"
+                                        ref={fileInputRefs.backgroundGrid}
+                                        className="hidden"
+                                        onChange={handleBackgroundGridUpload}
+                                        accept="image/*"
                                     />
-                                </div>
+
+                                    {/* Icon Top-Left */}
+                                    <div className="z-20">
+                                        <ImagePlus size={18} className={backgroundGridFile ? 'fill-current' : ''} />
+                                    </div>
+
+                                    {/* Label Bottom-Left */}
+                                    <span className="text-[10px] font-bold tracking-wider text-left z-20 w-full">Base Background</span>
+
+                                    {/* Hover Overlay */}
+                                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
+                                        <span className="text-[8px] text-zinc-300 font-mono text-center px-1">Drop or Select File</span>
+                                    </div>
+
+                                    {/* Content Background */}
+                                    {backgroundGridFile && (
+                                        <div className="absolute inset-0 z-10 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
+                                            <img
+                                                src={URL.createObjectURL(backgroundGridFile)}
+                                                className="w-full h-full object-cover"
+                                                alt=""
+                                                onError={(e) => e.currentTarget.style.display = 'none'}
+                                            />
+                                        </div>
+                                    )}
+                                </button>
+                            </div>
+
+                            <div className="mb-2">
+                                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider block mb-1 pl-1">Context (Optional)</label>
+                                <textarea
+                                    value={prompt}
+                                    onChange={handlePromptChange}
+                                    placeholder="Add context (e.g. 'Cyberpunk city street')..."
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-[10px] text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-600/50 resize-none h-16 placeholder-zinc-700 shadow-inner leading-tight"
+                                />
                             </div>
                         </div>
-                    ) : (
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center mb-1">
-                                <label className="text-xs text-zinc-500">Pipeline Inputs</label>
-                            </div>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="text-xs text-zinc-500">Pipeline Inputs</label>
+                        </div>
 
-                            <div className="flex gap-2">
-                                {/* Storyboard Tab */}
+                        <div className="flex gap-2">
+                            {/* Storyboard Tab */}
                             <button
                                 onClick={() => {
                                     setSelectedAutoTabs(prev =>
@@ -658,212 +664,212 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                                 )}
                             </button>
 
-                                {/* Composition & Lighting Tab (Merged) */}
+                            {/* Composition & Lighting Tab (Merged) */}
 
 
-                                {/* Background Tab */}
-                                <button
-                                    onClick={() => {
-                                        setSelectedAutoTabs(prev =>
-                                            prev.includes('background') ? prev.filter(t => t !== 'background') : [...prev, 'background']
-                                        );
-                                    }}
-                                    onDoubleClick={() => fileInputRefs.background.current?.click()}
-                                    onDragOver={onButtonDragOver}
-                                    onDrop={(e) => onDropFile(e, setAutoBackgroundFile)}
-                                    className={`
+                            {/* Background Tab */}
+                            <button
+                                onClick={() => {
+                                    setSelectedAutoTabs(prev =>
+                                        prev.includes('background') ? prev.filter(t => t !== 'background') : [...prev, 'background']
+                                    );
+                                }}
+                                onDoubleClick={() => fileInputRefs.background.current?.click()}
+                                onDragOver={onButtonDragOver}
+                                onDrop={(e) => onDropFile(e, setAutoBackgroundFile)}
+                                className={`
                     w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
                     ${selectedAutoTabs.includes('background')
-                                            ? 'bg-zinc-800 border-white text-white shadow-lg'
-                                            : 'bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-400'
-                                        }
+                                        ? 'bg-zinc-800 border-white text-white shadow-lg'
+                                        : 'bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-400'
+                                    }
                     `}
-                                >
-                                    <input
-                                        type="file"
-                                        ref={fileInputRefs.background}
-                                        className="hidden"
-                                        onChange={handleAutoBackgroundUpload}
-                                        accept="image/*"
-                                    />
-
-                                    {/* Icon Top-Left */}
-                                    <div className="z-20">
-                                        <ImagePlus size={18} className={selectedAutoTabs.includes('background') ? 'fill-current' : ''} />
-                                    </div>
-
-                                    {/* Label Bottom-Left */}
-                                    <span className="text-[10px] font-bold tracking-wider text-left z-20 w-full">Background</span>
-
-                                    {/* Hover Overlay */}
-                                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
-                                        <span className="text-[8px] text-zinc-300 font-mono text-center px-1">Drop or Select File</span>
-                                    </div>
-
-                                    {/* Content Background */}
-                                    {(autoBackgroundFile || (shot.background_urls && shot.background_urls.length > 0)) && (
-                                        <div className="absolute inset-0 z-10 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
-                                            <DriveImage
-                                                src={autoBackgroundFile ? URL.createObjectURL(autoBackgroundFile) : shot.background_urls![0]}
-                                                alt="Background"
-                                                className="w-full h-full"
-                                                imageClassName="object-cover"
-                                            />
-                                        </div>
-                                    )}
-                                </button>
-                            </div>
-
-                            {/* Character Cards */}
-                            <div className="flex gap-2 min-h-24 flex-wrap">
-                              {/* Select Characters Button */}
-
-                                    return (
-                                <button
-                                    onClick={() => setShowCharacterModal(true)}
-                                    disabled={!projectId}
-                                    className="w-32 h-24 rounded-xl border-2 border-dashed border-blue-500/30 bg-zinc-900/50 text-blue-400 hover:border-blue-500/50 hover:bg-zinc-800 flex flex-col justify-center items-center text-center p-3 transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <User size={24} />
-                                    <span className="text-[10px] font-bold tracking-wider mt-2">Select Characters</span>
-                                </button>
-
-                                {/* Selected Characters Display */}
-                                {selectedCharacters.map((character) => (
-                                    <div
-                                        key={character.id}
-                                        className="w-24 h-24 rounded-xl border-2 border-blue-500 bg-zinc-800 flex flex-col justify-between items-start text-left p-2 relative overflow-hidden group transition-all shrink-0"
-                                    >
-                                        {/* Character Image */}
-                                        <img
-                                            src={getPreviewUrl(character.gdrive_link)}
-                                            alt={character.name}
-                                            className="absolute inset-0 w-full h-full object-cover opacity-40"
-                                            onError={(e) => {
-                                                e.currentTarget.style.display = 'none';
-                                            }}
-                                            />
-                                        {/* Remove Button */}
-                                        <button
-                                            onClick={() => removeCharacter(character.id)}
-                                            className="absolute top-1 right-1 bg-red-500 rounded-full p-1 hover:bg-red-600 z-20"
-                                        >
-                                            <X size={12} className="text-white" />
-                                        </button>
-
-
-                                        {/* Character Name */}
-                                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 backdrop-blur-sm p-1 z-10">
-                                            <span className="text-[9px] font-bold text-white truncate block">
-                                                {character.name}
-                                            </span>
-                                        </div>
-
-                                    </div>
-                                    
-                                    ))}
-
-                                {/* Add Button - Keep for backwards compatibility  */}
-                                <button
-                                    onClick={addCharacterTab}
-                                    className="w-24 h-24 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 text-zinc-600 hover:text-zinc-400 hover:border-zinc-500 hover:bg-zinc-800 flex flex-col justify-between items-start text-left p-3 transition-all shrink-0"
-                                >
-                                    <div className="z-20">
-                                        <Upload size={18} />
-                                    </div>
-                                    <span className="text-[10px] font-medium text-left">Upload</span>
-                                </button>
-                            </div>
-
-                            {/* Additional Context Input (Moved Below) */}
-                            <div className="mb-2 mt-2">
-                                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider block mb-1 pl-1">Additional Context</label>
-                                <textarea
-                                    value={prompt}
-                                    onChange={handlePromptChange}
-                                    placeholder="Add context to refine the generation..."
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-[10px] text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-600/50 resize-none h-12 placeholder-zinc-700 shadow-inner leading-tight"
+                            >
+                                <input
+                                    type="file"
+                                    ref={fileInputRefs.background}
+                                    className="hidden"
+                                    onChange={handleAutoBackgroundUpload}
+                                    accept="image/*"
                                 />
-                            </div>
 
-                            <p className="text-[10px] text-zinc-500 italic text-center">* Click tabs to upload references for each stage</p>
-                        </div>
-                    )}
-                </div>
+                                {/* Icon Top-Left */}
+                                <div className="z-20">
+                                    <ImagePlus size={18} className={selectedAutoTabs.includes('background') ? 'fill-current' : ''} />
+                                </div>
 
-                {/* Controls Row */}
-                <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-1">
-                        <label className="text-xs text-zinc-500 block mb-1">Model</label>
-                        <div className="relative">
-                            <select
-                                value={generationMode === 'background_grid' ? 'Gemini 3 Pro' : selectedModel}
-                                onChange={(e) => setSelectedModel(e.target.value)}
-                                disabled={generationMode === 'background_grid'}
-                                className={`w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-xs text-zinc-200 outline-none appearance-none cursor-pointer truncate ${generationMode === 'background_grid' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                                {generationMode === 'background_grid' ? (
-                                    <option>Gemini 3 Pro</option>
-                                ) : (
-                                    <>
-                                        <option>Google Nanobanana</option>
-                                        <option>Google Nanobanana Pro</option>
-                                    </>
+                                {/* Label Bottom-Left */}
+                                <span className="text-[10px] font-bold tracking-wider text-left z-20 w-full">Background</span>
+
+                                {/* Hover Overlay */}
+                                <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
+                                    <span className="text-[8px] text-zinc-300 font-mono text-center px-1">Drop or Select File</span>
+                                </div>
+
+                                {/* Content Background */}
+                                {(autoBackgroundFile || (shot.background_urls && shot.background_urls.length > 0)) && (
+                                    <div className="absolute inset-0 z-10 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
+                                        <DriveImage
+                                            src={autoBackgroundFile ? URL.createObjectURL(autoBackgroundFile) : shot.background_urls![0]}
+                                            alt="Background"
+                                            className="w-full h-full"
+                                            imageClassName="object-cover"
+                                        />
+                                    </div>
                                 )}
-                            </select>
-                            <ChevronDown size={14} className="absolute right-1 top-2.5 text-zinc-500 pointer-events-none" />
+                            </button>
                         </div>
-                    </div>
-                    <div>
-                        <label className="text-xs text-zinc-500 block mb-1">Ratio</label>
-                        <div className="relative">
-                            <select
-                                value={aspectRatio}
-                                onChange={(e) => setAspectRatio(e.target.value)}
-                                className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-xs text-zinc-200 outline-none appearance-none cursor-pointer"
+
+                        {/* Character Cards */}
+                        <div className="flex gap-2 min-h-24 flex-wrap">
+                            {/* Select Characters Button */}
+
+
+                            <button
+                                onClick={() => setShowCharacterModal(true)}
+                                disabled={!projectId}
+                                className="w-32 h-24 rounded-xl border-2 border-dashed border-blue-500/30 bg-zinc-900/50 text-blue-400 hover:border-blue-500/50 hover:bg-zinc-800 flex flex-col justify-center items-center text-center p-3 transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <option>1:1</option>
-                                <option>21:9</option>
-                                <option>16:9</option>
-                                <option>9:16</option>
-                                <option>3:4</option>
-                                <option>4:5</option>
-                                <option>5:4</option>
-                                <option>4:3</option>
-                                <option>3:2</option>
-                                <option>2:3</option>
-                            </select>
-                            <ChevronDown size={14} className="absolute right-1 top-2.5 text-zinc-500 pointer-events-none" />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="text-xs text-zinc-500 block mb-1">Res</label>
-                        <div className="relative">
-                            <select
-                                value={generationMode === 'background_grid' ? '4K' : resolution}
-                                onChange={(e) => setResolution(e.target.value)}
-                                disabled={generationMode === 'background_grid'}
-                                className={`w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-xs text-zinc-200 outline-none appearance-none cursor-pointer ${generationMode === 'background_grid' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                <User size={24} />
+                                <span className="text-[10px] font-bold tracking-wider mt-2">Select Characters</span>
+                            </button>
+
+                            {/* Selected Characters Display */}
+                            {selectedCharacters.map((character) => (
+                                <div
+                                    key={character.id}
+                                    className="w-24 h-24 rounded-xl border-2 border-blue-500 bg-zinc-800 flex flex-col justify-between items-start text-left p-2 relative overflow-hidden group transition-all shrink-0"
+                                >
+                                    {/* Character Image */}
+                                    <img
+                                        src={getPreviewUrl(character.gdrive_link)}
+                                        alt={character.name}
+                                        className="absolute inset-0 w-full h-full object-cover opacity-40"
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                        }}
+                                    />
+                                    {/* Remove Button */}
+                                    <button
+                                        onClick={() => removeCharacter(character.id)}
+                                        className="absolute top-1 right-1 bg-red-500 rounded-full p-1 hover:bg-red-600 z-20"
+                                    >
+                                        <X size={12} className="text-white" />
+                                    </button>
+
+
+                                    {/* Character Name */}
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 backdrop-blur-sm p-1 z-10">
+                                        <span className="text-[9px] font-bold text-white truncate block">
+                                            {character.name}
+                                        </span>
+                                    </div>
+
+                                </div>
+
+                            ))}
+
+                            {/* Add Button - Keep for backwards compatibility  */}
+                            <button
+                                onClick={addCharacterTab}
+                                className="w-24 h-24 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 text-zinc-600 hover:text-zinc-400 hover:border-zinc-500 hover:bg-zinc-800 flex flex-col justify-between items-start text-left p-3 transition-all shrink-0"
                             >
-                                {generationMode === 'background_grid' ? (
-                                    <option>4K</option>
-                                ) : (
-                                    <>
-                                        <option>1K</option>
-                                        <option>2K</option>
-                                    </>
-                                )}
-                            </select>
-                            <ChevronDown size={14} className="absolute right-1 top-2.5 text-zinc-500 pointer-events-none" />
+                                <div className="z-20">
+                                    <Upload size={18} />
+                                </div>
+                                <span className="text-[10px] font-medium text-left">Upload</span>
+                            </button>
                         </div>
+
+                        {/* Additional Context Input (Moved Below) */}
+                        <div className="mb-2 mt-2">
+                            <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider block mb-1 pl-1">Additional Context</label>
+                            <textarea
+                                value={prompt}
+                                onChange={handlePromptChange}
+                                placeholder="Add context to refine the generation..."
+                                className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-[10px] text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-600/50 resize-none h-12 placeholder-zinc-700 shadow-inner leading-tight"
+                            />
+                        </div>
+
+                        <p className="text-[10px] text-zinc-500 italic text-center">* Click tabs to upload references for each stage</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Controls Row */}
+            <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-1">
+                    <label className="text-xs text-zinc-500 block mb-1">Model</label>
+                    <div className="relative">
+                        <select
+                            value={generationMode === 'background_grid' ? 'Gemini 3 Pro' : selectedModel}
+                            onChange={(e) => setSelectedModel(e.target.value)}
+                            disabled={generationMode === 'background_grid'}
+                            className={`w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-xs text-zinc-200 outline-none appearance-none cursor-pointer truncate ${generationMode === 'background_grid' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            {generationMode === 'background_grid' ? (
+                                <option>Gemini 3 Pro</option>
+                            ) : (
+                                <>
+                                    <option>Google Nanobanana</option>
+                                    <option>Google Nanobanana Pro</option>
+                                </>
+                            )}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-1 top-2.5 text-zinc-500 pointer-events-none" />
                     </div>
                 </div>
+                <div>
+                    <label className="text-xs text-zinc-500 block mb-1">Ratio</label>
+                    <div className="relative">
+                        <select
+                            value={aspectRatio}
+                            onChange={(e) => setAspectRatio(e.target.value)}
+                            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-xs text-zinc-200 outline-none appearance-none cursor-pointer"
+                        >
+                            <option>1:1</option>
+                            <option>21:9</option>
+                            <option>16:9</option>
+                            <option>9:16</option>
+                            <option>3:4</option>
+                            <option>4:5</option>
+                            <option>5:4</option>
+                            <option>4:3</option>
+                            <option>3:2</option>
+                            <option>2:3</option>
+                        </select>
+                        <ChevronDown size={14} className="absolute right-1 top-2.5 text-zinc-500 pointer-events-none" />
+                    </div>
+                </div>
+                <div>
+                    <label className="text-xs text-zinc-500 block mb-1">Res</label>
+                    <div className="relative">
+                        <select
+                            value={generationMode === 'background_grid' ? '4K' : resolution}
+                            onChange={(e) => setResolution(e.target.value)}
+                            disabled={generationMode === 'background_grid'}
+                            className={`w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-xs text-zinc-200 outline-none appearance-none cursor-pointer ${generationMode === 'background_grid' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            {generationMode === 'background_grid' ? (
+                                <option>4K</option>
+                            ) : (
+                                <>
+                                    <option>1K</option>
+                                    <option>2K</option>
+                                </>
+                            )}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-1 top-2.5 text-zinc-500 pointer-events-none" />
+                    </div>
+                </div>
+            </div>
 
-                {/* Button */}
-                <GenerateButton 
-                    onGenerate={handleGenerate} 
-                    isGenerating={isGenerating} 
-                />
+            {/* Button */}
+            <GenerateButton
+                onGenerate={handleGenerate}
+                isGenerating={isGenerating}
+            />
 
             {/* Character Selection Modal */}
             {showCharacterModal && projectId && (

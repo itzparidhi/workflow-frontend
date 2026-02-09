@@ -60,6 +60,10 @@ export const Workstation: React.FC = () => {
   // Project ID for character resources
   const [projectId, setProjectId] = useState<string | null>(null);
   const [showCharacterModalFromMention, setShowCharacterModalFromMention] = useState(false);
+  const [selectedCharacters, setSelectedCharacters] = useState<any[]>([]);
+
+  // Selected Background for Auto Mode
+  const [selectedBackgroundUrl, setSelectedBackgroundUrl] = useState<string | null>(null);
 
   // HOISTED HOOK
   const {
@@ -85,7 +89,7 @@ export const Workstation: React.FC = () => {
     uploadProgress,
     uploadStatus,
     handleGenerateBackgroundGrid,
-    saveBackgroundReference
+    saveBackgroundReferences
   } = useWorkstation();
 
   // Define toggleAccordion (missing previously?)
@@ -96,11 +100,16 @@ export const Workstation: React.FC = () => {
   const handleBackgroundGridUpload = (e: React.ChangeEvent<HTMLInputElement>) => validateFile(e, setBackgroundGridFile);
 
   const handleSaveBackgrounds = async (urls: string[]) => {
-    // Save each URL
-    for (const url of urls) {
-      await saveBackgroundReference(url);
+    // Save all URLs at once
+    try {
+      await saveBackgroundReferences(urls);
+      // setIsBackgroundGridModalOpen(false); // Keep modal open or close? User might want to save more? Usually close.
+      // But wait, the original code didn't check success.
+      dialog.alert('Success', `Saved ${urls.length} background(s) to references!`, 'success');
+    } catch (e: any) {
+      console.error(e);
+      dialog.alert('Error', 'Failed to save backgrounds.', 'danger');
     }
-    dialog.alert('Success', `Saved ${urls.length} background(s) to references!`, 'success');
   };
   // Fetch project ID from scene when shot loads
   useEffect(() => {
@@ -143,7 +152,7 @@ export const Workstation: React.FC = () => {
       // Show image tag menu if no space after @ and we have ref images
       if (!query.includes(' ') && refImages.length > 0) {
         setShowTagMenu(true);
-        
+
         return;
       }
     }
@@ -170,7 +179,7 @@ export const Workstation: React.FC = () => {
     }, 0);
   };
 
-  const handleCharacterMentionSelect = (characters: any[]) => {
+  const handleCharacterMentionSelect = async (characters: any[]) => {
     if (!textareaRef.current || characters.length === 0) return;
 
     const val = prompt;
@@ -178,11 +187,37 @@ export const Workstation: React.FC = () => {
     const textBeforeCursor = val.substring(0, cursorIndex);
     const lastAtPos = textBeforeCursor.lastIndexOf('@');
 
-    // Insert character names separated by commas
-    const characterNames = characters.map(c => c.name).join(', ');
-    const newVal = val.substring(0, lastAtPos) + characterNames + ' ' + val.substring(cursorIndex);
+    // Insert character names with @ prefix, separated by commas
+    const characterTags = characters.map(c => `@${c.name}`).join(' ');
+    const newVal = val.substring(0, lastAtPos) + characterTags + ' ' + val.substring(cursorIndex);
     setPrompt(newVal);
     setShowCharacterModalFromMention(false);
+
+    // Fetch character images and add to refImages
+    const getPreviewUrl = (gdriveLink: string) => {
+      // Supabase or Direct URL check
+      if (gdriveLink.includes('supabase.co') || gdriveLink.startsWith('http')) return gdriveLink;
+
+      const match = gdriveLink.match(/\/d\/([^\/]+)/);
+      if (match) {
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
+      }
+      return gdriveLink.replace('/view', '/preview');
+    };
+
+    for (const character of characters) {
+      try {
+        const imageUrl = getPreviewUrl(character.gdrive_link);
+        const response = await fetch(imageUrl, { referrerPolicy: 'no-referrer' });
+        if (response.ok) {
+          const blob = await response.blob();
+          const file = new File([blob], `${character.name}.png`, { type: 'image/png' });
+          setRefImages(prev => [...prev, file]);
+        }
+      } catch (e) {
+        console.warn(`Failed to fetch character image for ${character.name}:`, e);
+      }
+    }
 
     // Refocus and set cursor
     setTimeout(() => {
@@ -486,27 +521,37 @@ export const Workstation: React.FC = () => {
       // Helper for robust fetching
       const fetchImageBlob = async (url: string): Promise<Blob | null> => {
         try {
-            // 1. Try Direct Link (High Res)
-            let fetchUrl = getDirectDriveLink(url);
-            let r = await fetch(fetchUrl, { referrerPolicy: "no-referrer" });
-            
-            if (!r.ok || r.headers.get('content-type')?.includes('text/html')) {
-                // 2. Try Export View (Fallback)
-                console.warn('Direct fetch failed or returned HTML, trying export view fallback...', url);
-                fetchUrl = getExportViewLink(url);
-                r = await fetch(fetchUrl, { referrerPolicy: "no-referrer" });
+          // 0. Check for Supabase / Direct URL
+          if (url.includes('supabase.co') || !url.includes('google.com')) {
+            try {
+              const r = await fetch(url);
+              if (r.ok) return await r.blob();
+            } catch (e) {
+              console.warn('Direct fetch failed', e);
             }
+          }
 
-            if (r.ok) {
-                const blob = await r.blob();
-                if (blob.type.includes('text/html')) {
-                    console.error('Fetched content is HTML, not image.', url);
-                    return null;
-                }
-                return blob;
+          // 1. Try Direct Link (High Res) google drive
+          let fetchUrl = getDirectDriveLink(url);
+          let r = await fetch(fetchUrl, { referrerPolicy: "no-referrer" });
+
+          if (!r.ok || r.headers.get('content-type')?.includes('text/html')) {
+            // 2. Try Export View (Fallback)
+            console.warn('Direct fetch failed or returned HTML, trying export view fallback...', url);
+            fetchUrl = getExportViewLink(url);
+            r = await fetch(fetchUrl, { referrerPolicy: "no-referrer" });
+          }
+
+          if (r.ok) {
+            const blob = await r.blob();
+            if (blob.type.includes('text/html')) {
+              console.error('Fetched content is HTML, not image.', url);
+              return null;
             }
+            return blob;
+          }
         } catch (e) {
-            console.error("Failed to fetch image blob", e);
+          console.error("Failed to fetch image blob", e);
         }
         return null;
       };
@@ -520,7 +565,7 @@ export const Workstation: React.FC = () => {
           } else if (shot?.storyboard_url) {
             const blob = await fetchImageBlob(shot.storyboard_url);
             if (blob) {
-                autoStoryboard = new File([blob], "storyboard.png", { type: "image/png" });
+              autoStoryboard = new File([blob], "storyboard.png", { type: "image/png" });
             }
           }
         }
@@ -529,17 +574,23 @@ export const Workstation: React.FC = () => {
 
         // 3. Background
         if (selectedAutoTabs.includes('background')) {
-            if (autoBackgroundFile) {
-                autoBackground = autoBackgroundFile;
-            } else if (shot?.background_urls && shot.background_urls.length > 0) {
-                const blob = await fetchImageBlob(shot.background_urls[0]);
-                if (blob) {
-                    autoBackground = new File([blob], "background.png", { type: "image/png" });
-                }
+          if (autoBackgroundFile) {
+            autoBackground = autoBackgroundFile;
+          } else if (selectedBackgroundUrl) {
+            const blob = await fetchImageBlob(selectedBackgroundUrl);
+            if (blob) {
+              autoBackground = new File([blob], "background.png", { type: "image/png" });
             }
+          } else if (shot?.background_urls && shot.background_urls.length > 0) {
+            const blob = await fetchImageBlob(shot.background_urls[0]);
+            if (blob) {
+              autoBackground = new File([blob], "background.png", { type: "image/png" });
+            }
+          }
         }
 
         // 3. Characters
+        // (A) From Tabs (Old/Upload)
         for (const tab of characterTabs) {
           if (selectedAutoTabs.includes(tab.id)) {
             if (autoCharacterFiles[tab.id]) {
@@ -547,11 +598,18 @@ export const Workstation: React.FC = () => {
             } else if (tab.file) {
               autoCharacters.push(tab.file);
             } else if (tab.id === 'char_1' && shot?.style_url) {
-                const blob = await fetchImageBlob(shot.style_url);
-                if (blob) {
-                    autoCharacters.push(new File([blob], "char1.png", { type: "image/png" }));
-                }
+              const blob = await fetchImageBlob(shot.style_url);
+              if (blob) {
+                autoCharacters.push(new File([blob], "char1.png", { type: "image/png" }));
+              }
             }
+          }
+        }
+        // (B) From Selected Characters (New/Resources)
+        for (const char of selectedCharacters) {
+          const blob = await fetchImageBlob(char.gdrive_link);
+          if (blob) {
+            autoCharacters.push(new File([blob], `${char.name.replace(/\s+/g, '_')}.png`, { type: "image/png" }));
           }
         }
       } else if (generationMode === 'storyboard_enhancer') {
@@ -696,7 +754,7 @@ export const Workstation: React.FC = () => {
           const resp = await fetch(selectedGeneration.image_url);
           const blob = await resp.blob();
           const file = new File([blob], "generated_image.png", { type: "image/png" });
-    
+
           handleUpload({ target: { files: [file] } } as any);
         } catch (err) {
           console.error("Failed to promote generation", err);
@@ -751,6 +809,9 @@ export const Workstation: React.FC = () => {
           setZoomLevel={setZoomLevel}
           navigate={navigate}
           isGenerating={isGenerating}
+          projectId={projectId}
+          selectedBackgroundUrl={selectedBackgroundUrl}
+          setSelectedBackgroundUrl={setSelectedBackgroundUrl}
         />
 
         <GenerationTools
@@ -818,6 +879,8 @@ export const Workstation: React.FC = () => {
           showCharacterModalFromMention={showCharacterModalFromMention}
           onCharacterMentionSelect={handleCharacterMentionSelect}
           onCloseCharacterMention={() => setShowCharacterModalFromMention(false)}
+          selectedCharacters={selectedCharacters}
+          setSelectedCharacters={setSelectedCharacters}
         />
       </div>
 
@@ -937,7 +1000,7 @@ export const Workstation: React.FC = () => {
                   {selectedGeneration && (
                     <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/30 to-transparent opacity-50 pointer-events-none" />
                   )}
-                  
+
                   {uploadStatus === 'uploading' ? (
                     <>
                       <Loader2 className="animate-spin" size={20} />

@@ -62,6 +62,7 @@ export const uploadAsset = async (payload: {
   reference_type?: string;
   asset_type?: string;
   resource_type?: string;
+  character_name?: string;
 }, onUploadProgress?: (progressEvent: any) => void) => {
   const formData = new FormData();
   Object.entries(payload).forEach(([key, value]) => {

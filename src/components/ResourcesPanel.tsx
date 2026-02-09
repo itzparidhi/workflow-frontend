@@ -30,6 +30,7 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [characterName, setCharacterName] = useState('');
 
   useEffect(() => {
     fetchResources();
@@ -44,7 +45,12 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
   };
 
   const openPreview = (url: string) => {
-    // Transform /view to /preview for embedding
+    // Direct link or Supabase
+    if (url.includes('supabase.co') || !url.includes('google.com')) {
+      setPreviewUrl(url);
+      return;
+    }
+    // Google Drive Transform
     let embedUrl = url;
     if (url.includes('/view')) {
       embedUrl = url.replace(/\/view.*/, '/preview');
@@ -92,10 +98,12 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
         uploader_id: userProfile.id,
         asset_type: 'resource',
         resource_type: resourceType,
+        character_name: resourceType === 'character' ? characterName : undefined,
       });
 
       setSelectedFile(null);
       setResourceType('reference');
+      setCharacterName('');
       setIsAdding(false);
       fetchResources();
     } catch (err: any) {
@@ -113,7 +121,7 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
         <h2 className="text-xl font-bold">Resources</h2>
         <div className="flex gap-2">
           {selectedResourceId && (userProfile?.role === 'CD' || userProfile?.role === 'PM') && (
-             <button
+            <button
               onClick={handleDeleteResource}
               className="p-1 hover:bg-zinc-700 rounded text-red-400 hover:text-red-300 transition-colors"
               title="Delete Selected Resource"
@@ -146,6 +154,16 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
             <option value="other">Other</option>
           </select>
 
+          {resourceType === 'character' && (
+            <input
+              type="text"
+              value={characterName}
+              onChange={e => setCharacterName(e.target.value)}
+              placeholder="Character Name (e.g. Hero, Villain)"
+              className="w-full bg-zinc-800 border border-zinc-600 rounded p-2 text-sm placeholder-zinc-500"
+            />
+          )}
+
           <input
             type="file"
             onChange={e => setSelectedFile(e.target.files ? e.target.files[0] : null)}
@@ -167,11 +185,10 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
           <div
             key={res.id}
             onClick={() => setSelectedResourceId(selectedResourceId === res.id ? null : res.id)}
-            className={`p-3 rounded border cursor-pointer transition-colors ${
-              selectedResourceId === res.id
-                ? 'bg-zinc-800 border-blue-500'
-                : 'bg-zinc-900 border-zinc-700 hover:border-zinc-600'
-            }`}
+            className={`p-3 rounded border cursor-pointer transition-colors ${selectedResourceId === res.id
+              ? 'bg-zinc-800 border-blue-500'
+              : 'bg-zinc-900 border-zinc-700 hover:border-zinc-600'
+              }`}
           >
             <button
               onClick={(e) => {
@@ -182,7 +199,7 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
             >
               {res.name}
             </button>
-             <p className="text-xs text-zinc-500 mt-1">{res.type}</p>
+            <p className="text-xs text-zinc-500 mt-1">{res.type}</p>
           </div>
         ))}
         {resources.length === 0 && !isAdding && <p className="text-zinc-500">No resources.</p>}
@@ -191,17 +208,17 @@ export const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ projectId, proje
       {previewUrl && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8">
           <div className="bg-zinc-900 w-full h-full rounded-lg flex flex-col relative border border-zinc-700 shadow-2xl">
-             <button 
-               onClick={() => setPreviewUrl(null)}
-               className="absolute -top-3 -right-3 bg-red-600 rounded-full p-1.5 hover:bg-red-700 text-white shadow-lg z-10"
-             >
-               <X size={20} />
-             </button>
-             <iframe 
-               src={previewUrl} 
-               className="w-full h-full rounded-lg bg-white" 
-               title="Resource Preview"
-             />
+            <button
+              onClick={() => setPreviewUrl(null)}
+              className="absolute -top-3 -right-3 bg-red-600 rounded-full p-1.5 hover:bg-red-700 text-white shadow-lg z-10"
+            >
+              <X size={20} />
+            </button>
+            <iframe
+              src={previewUrl}
+              className="w-full h-full rounded-lg bg-white"
+              title="Resource Preview"
+            />
           </div>
         </div>
       )}

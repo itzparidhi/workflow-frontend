@@ -321,21 +321,23 @@ export const useWorkstation = () => {
     }
   };
 
-  const saveBackgroundReference = async (url: string) => {
+  const saveBackgroundReferences = async (urls: string[]) => {
     if (!shot) return;
     // Get current array or empty
     const current = shot.background_urls || [];
-    // Prevent duplicates
-    if (current.includes(url)) return;
 
-    const newUrls = [...current, url];
+    // Filter out duplicates
+    const toAdd = urls.filter(url => !current.includes(url));
+    if (toAdd.length === 0) return;
+
+    const newUrls = [...current, ...toAdd];
 
     const { error } = await supabase.from('shots').update({
       background_urls: newUrls
     }).eq('id', shot.id);
 
     if (error) {
-      console.error("Failed to save background ref:", error);
+      console.error("Failed to save background refs:", error);
       throw error;
     }
     // Refresh shot data
@@ -368,6 +370,6 @@ export const useWorkstation = () => {
     setUploadStatus,
     setUploadingRefs,
     handleGenerateBackgroundGrid,
-    saveBackgroundReference
+    saveBackgroundReferences
   };
 };

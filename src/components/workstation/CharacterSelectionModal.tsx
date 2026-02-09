@@ -59,7 +59,9 @@ export const CharacterSelectionModal: React.FC<CharacterSelectionModalProps> = (
     };
 
     const getPreviewUrl = (gdriveLink: string) => {
-        // Extract file ID from Google Drive link
+        // Supabase or Direct URL check
+        if (gdriveLink.includes('supabase.co') || gdriveLink.startsWith('http')) return gdriveLink;
+
         const match = gdriveLink.match(/\/d\/([^\/]+)/);
         if (match) {
             return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
