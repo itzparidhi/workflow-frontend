@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Wand2, Sparkles, Loader2, ImagePlus, X, ChevronDown, Star, User, Upload, Target, Image as ImageIcon } from 'lucide-react';
 import { DriveImage } from '../DriveImage';
 import type { Shot } from '../../types';
+import { CharacterSelectionModal } from './CharacterSelectionModal';
 
 interface GenerationToolsProps {
     generationMode: 'manual' | 'automatic' | 'storyboard_enhancer' | 'angles' | 'background_grid';
@@ -73,6 +74,12 @@ interface GenerationToolsProps {
     backgroundGridFile?: File | null;
     setBackgroundGridFile?: (file: File | null) => void;
     handleBackgroundGridUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    // Project ID for character resources
+    projectId: string | null;
+    // Character mention in manual mode
+    showCharacterModalFromMention?: boolean;
+    onCharacterMentionSelect?: (characters: any[]) => void;
+    onCloseCharacterMention?: () => void;
 }
 
 const GenerateButton: React.FC<{ onGenerate: () => void; isGenerating: boolean }> = ({ onGenerate, isGenerating }) => {
@@ -130,12 +137,12 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
     handleAutoBackgroundUpload,
     autoBackgroundFile,
     setAutoBackgroundFile,
-    characterTabs,
-    autoCharacterFiles,
-    handleAutoCharacterUpload,
+    // characterTabs,
+    // autoCharacterFiles,
+    // handleAutoCharacterUpload,
     // removeAutoCharacterFile,
     addCharacterTab,
-    removeCharacterTab,
+    // removeCharacterTab,
     selectedModel,
     setSelectedModel,
     aspectRatio,
@@ -163,8 +170,33 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
     // BG Grid
     backgroundGridFile,
     setBackgroundGridFile,
-    handleBackgroundGridUpload
+    handleBackgroundGridUpload,
+    // Project ID
+    projectId,
+    // Character mention
+    showCharacterModalFromMention,
+    onCharacterMentionSelect,
+    onCloseCharacterMention
 }) => {
+    // Character selection state
+    const [selectedCharacters, setSelectedCharacters] = useState<any[]>([]);
+    const [showCharacterModal, setShowCharacterModal] = useState(false);
+
+    const handleCharacterSelect = (characters: any[]) => {
+        setSelectedCharacters(characters);
+    };
+
+    const removeCharacter = (id: string) => {
+        setSelectedCharacters(prev => prev.filter(c => c.id !== id));
+    };
+
+    const getPreviewUrl = (gdriveLink: string) => {
+        const match = gdriveLink.match(/\/d\/([^\/]+)/);
+        if (match) {
+            return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
+        }
+        return gdriveLink.replace('/view', '/preview');
+    };
     // Helper handlers for drag and drop
     const onButtonDragOver = (e: React.DragEvent) => {
         e.preventDefault();
@@ -199,43 +231,6 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
             } catch (error) {
                 console.error("Failed to fetch dropped image:", error);
             }
-        }
-    };
-
-    const onDropCharacter = async (e: React.DragEvent, id: string) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        let file: File | null = null;
-
-        // Handle File Drop
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            const droppedFile = e.dataTransfer.files[0];
-            if (droppedFile.type.startsWith('image/')) {
-                file = droppedFile;
-            }
-        }
-        // Handle URL Drop
-        else {
-            const imageUrl = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
-            if (imageUrl) {
-                try {
-                    const filename = imageUrl.split('/').pop()?.split('?')[0] || 'dropped-character.jpg';
-                    const response = await fetch(imageUrl);
-                    const blob = await response.blob();
-                    file = new File([blob], filename, { type: blob.type });
-                } catch (error) {
-                    console.error("Failed to fetch dropped character image:", error);
-                }
-            }
-        }
-
-        if (file) {
-            // Create a synthetic event to reuse the handler
-            const syntheticEvent = {
-                target: { files: [file] }
-            } as unknown as React.ChangeEvent<HTMLInputElement>;
-            handleAutoCharacterUpload(id, syntheticEvent);
         }
     };
     return (
@@ -280,7 +275,7 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                                 onDragOver={handleDragOver}
                                 onDrop={handleDropRef}
                                 className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-white-500 resize-none h-20 placeholder-zinc-600 mb-2"
-                                placeholder="Describe the shot... Use @img1 to reference uploads."
+                                placeholder="Describe the shot... Use @img1 to reference uploads, @ch for characters."
                             />
 
                         {/* Tag Autocomplete Menu */}
@@ -721,87 +716,54 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
 
                             {/* Character Cards */}
                             <div className="flex gap-2 min-h-24 flex-wrap">
-                                {characterTabs.map((char) => {
-                                    const isSelected = selectedAutoTabs.includes(char.id);
-                                    const shotUrl = char.id === 'char_1' ? shot.style_url : null;
-                                    const displayThumb = autoCharacterFiles[char.id]
-                                        ? URL.createObjectURL(autoCharacterFiles[char.id]!)
-                                        : char.file
-                                            ? URL.createObjectURL(char.file)
-                                            : shotUrl;
+                              {/* Select Characters Button */}
 
                                     return (
-                                        <button
-                                            key={char.id}
-                                            onClick={() => {
-                                                setSelectedAutoTabs(prev =>
-                                                    prev.includes(char.id)
-                                                        ? prev.filter(t => t !== char.id)
-                                                        : [...prev, char.id]
-                                                );
+                                <button
+                                    onClick={() => setShowCharacterModal(true)}
+                                    disabled={!projectId}
+                                    className="w-32 h-24 rounded-xl border-2 border-dashed border-blue-500/30 bg-zinc-900/50 text-blue-400 hover:border-blue-500/50 hover:bg-zinc-800 flex flex-col justify-center items-center text-center p-3 transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <User size={24} />
+                                    <span className="text-[10px] font-bold tracking-wider mt-2">Select Characters</span>
+                                </button>
+
+                                {/* Selected Characters Display */}
+                                {selectedCharacters.map((character) => (
+                                    <div
+                                        key={character.id}
+                                        className="w-24 h-24 rounded-xl border-2 border-blue-500 bg-zinc-800 flex flex-col justify-between items-start text-left p-2 relative overflow-hidden group transition-all shrink-0"
+                                    >
+                                        {/* Character Image */}
+                                        <img
+                                            src={getPreviewUrl(character.gdrive_link)}
+                                            alt={character.name}
+                                            className="absolute inset-0 w-full h-full object-cover opacity-40"
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
                                             }}
-                                            onDoubleClick={() => {
-                                                const input = fileInputRefs.characters.current.get(char.id);
-                                                input?.click();
-                                            }}
-                                            onDragOver={onButtonDragOver}
-                                            onDrop={(e) => onDropCharacter(e, char.id)}
-                                            className={`
-                      w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
-                      ${isSelected
-                                                    ? 'bg-zinc-800 border-white text-white shadow-lg'
-                                                    : 'bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-400'
-                                                }
-                      `}
-                                        >
-                                            <input
-                                                type="file"
-                                                ref={el => {
-                                                    if (el) fileInputRefs.characters.current.set(char.id, el);
-                                                    else fileInputRefs.characters.current.delete(char.id);
-                                                }}
-                                                className="hidden"
-                                                onChange={(e) => handleAutoCharacterUpload(char.id, e)}
-                                                accept="image/*"
                                             />
-
-                                            {/* Icon Top-Left */}
-                                            <div className="z-20 flex justify-between w-full">
-                                                <User size={18} />
-                                                {char.id !== 'char_1' && (
-                                                    <div
-                                                        onClick={(e) => removeCharacterTab(char.id, e)}
-                                                        className="hover:text-red-400 cursor-pointer"
-                                                    >
-                                                        <X size={14} />
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Label Bottom-Left */}
-                                            <span className="text-[10px] font-bold tracking-wider text-left z-20 truncate w-full">Char {characterTabs.findIndex(t => t.id === char.id) + 1}</span>
-
-                                            {/* Hover Overlay */}
-                                            <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
-                                                <span className="text-[8px] text-zinc-300 font-mono text-center px-1">Drop or Select File</span>
-                                            </div>
-
-                                            {/* Content Background */}
-                                            {displayThumb && (
-                                                <div className="absolute inset-0 z-10 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
-                                                    <DriveImage
-                                                        src={displayThumb || undefined}
-                                                        className="w-full h-full"
-                                                        imageClassName="object-cover"
-                                                        alt=""
-                                                    />
-                                                </div>
-                                            )}
+                                        {/* Remove Button */}
+                                        <button
+                                            onClick={() => removeCharacter(character.id)}
+                                            className="absolute top-1 right-1 bg-red-500 rounded-full p-1 hover:bg-red-600 z-20"
+                                        >
+                                            <X size={12} className="text-white" />
                                         </button>
-                                    );
-                                })}
 
-                                {/* Add Button */}
+
+                                        {/* Character Name */}
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 backdrop-blur-sm p-1 z-10">
+                                            <span className="text-[9px] font-bold text-white truncate block">
+                                                {character.name}
+                                            </span>
+                                        </div>
+
+                                    </div>
+                                    
+                                    ))}
+
+                                {/* Add Button - Keep for backwards compatibility  */}
                                 <button
                                     onClick={addCharacterTab}
                                     className="w-24 h-24 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 text-zinc-600 hover:text-zinc-400 hover:border-zinc-500 hover:bg-zinc-800 flex flex-col justify-between items-start text-left p-3 transition-all shrink-0"
@@ -903,8 +865,25 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                     isGenerating={isGenerating} 
                 />
 
-            {/* </div> */}
-        </div>
+            {/* Character Selection Modal */}
+            {showCharacterModal && projectId && (
+                <CharacterSelectionModal
+                    projectId={projectId}
+                    onSelect={handleCharacterSelect}
+                    onClose={() => setShowCharacterModal(false)}
+                    selectedCharacterIds={selectedCharacters.map(c => c.id)}
+                />
+            )}
 
+            {/* Character Selection Modal from @ch mention */}
+            {showCharacterModalFromMention && projectId && onCharacterMentionSelect && onCloseCharacterMention && (
+                <CharacterSelectionModal
+                    projectId={projectId}
+                    onSelect={onCharacterMentionSelect}
+                    onClose={onCloseCharacterMention}
+                    selectedCharacterIds={[]}
+                />
+            )}
+        </div>
     );
 };
