@@ -8,13 +8,11 @@ interface ReferencePanelProps {
     userProfile: UserProfile | null;
     uploadingRefs: {
         storyboard: boolean;
-        composition: boolean;
         style: boolean;
-        lighting: boolean;
     };
     openAccordion: string | null;
     toggleAccordion: (id: string) => void;
-    handleReferenceUpload: (e: React.ChangeEvent<HTMLInputElement>, type: 'storyboard' | 'composition' | 'style' | 'lighting') => void;
+    handleReferenceUpload: (e: React.ChangeEvent<HTMLInputElement>, type: 'storyboard' | 'style') => void;
     setFullScreenImage: (url: string | null) => void;
     setZoomLevel: (level: number) => void;
     navigate: (path: number) => void;
@@ -81,10 +79,8 @@ export const ReferencePanel: React.FC<ReferencePanelProps> = ({
 
             {/* References Accordions */}
             <div className="space-y-2 mb-1">
-                {[
-                    { id: 'composition', title: 'Composition Reference', url: shot.composition_url, loading: uploadingRefs.composition },
+                {[ 
                     { id: 'style', title: 'Character Reference', url: shot.style_url, loading: uploadingRefs.style },
-                    { id: 'lighting', title: 'Lighting Reference', url: shot.lighting_url, loading: uploadingRefs.lighting },
                 ].map((ref) => (
                     <div key={ref.id} className="border border-zinc-700 rounded bg-zinc-800/30 overflow-hidden">
                         <button

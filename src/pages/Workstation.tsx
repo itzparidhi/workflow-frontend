@@ -152,7 +152,6 @@ export const Workstation: React.FC = () => {
 
   // Automatic mode isolated upload state
   const [autoStoryboardFile, setAutoStoryboardFile] = useState<File | null>(null);
-  const [autoCompositionFile, setAutoCompositionFile] = useState<File | null>(null);
   const [autoBackgroundFile, setAutoBackgroundFile] = useState<File | null>(null);
   const [autoCharacterFiles, setAutoCharacterFiles] = useState<{ [id: string]: File | null }>({});
 
@@ -233,16 +232,7 @@ export const Workstation: React.FC = () => {
       }
     }
   };
-  const handleAutoCompositionUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.type.startsWith('image/')) {
-        setAutoCompositionFile(file);
-      } else {
-        dialog.alert('Error', 'Please select a valid image file.', 'warning');
-      }
-    }
-  };
+
   const handleAutoBackgroundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -285,9 +275,9 @@ export const Workstation: React.FC = () => {
 
   const fileInputRefs = {
     storyboard: useRef<HTMLInputElement>(null),
-    composition: useRef<HTMLInputElement>(null),
+
     background: useRef<HTMLInputElement>(null),
-    lighting: useRef<HTMLInputElement>(null),
+
     // Angles mode refs
     anglesAnchor: useRef<HTMLInputElement>(null),
     anglesTarget: useRef<HTMLInputElement>(null),
@@ -355,12 +345,6 @@ export const Workstation: React.FC = () => {
               const f = await fetchFile(refs.storyboard, "restored_storyboard.png");
               setAutoStoryboardFile(f);
               newSelectedTabs.push('storyboard');
-            }
-            if (refs.lighting) {
-              const f = await fetchFile(refs.lighting, "restored_lighting.png");
-              setAutoCompositionFile(f);
-              setAutoCompositionFile(f);
-              newSelectedTabs.push('composition');
             }
             newSelectedTabs.push('background');
             if (refs.characters && refs.characters.length > 0) {
@@ -494,20 +478,7 @@ export const Workstation: React.FC = () => {
           }
         }
 
-        // 2. Lighting & Composition (Previous Frame)
-        if (selectedAutoTabs.includes('composition')) {
-          if (autoCompositionFile) {
-            autoLighting = autoCompositionFile;
-          } else {
-            const url = shot?.composition_url || shot?.lighting_url;
-            if (url) {
-                const blob = await fetchImageBlob(url);
-                if (blob) {
-                    autoLighting = new File([blob], "lighting.png", { type: "image/png" });
-                }
-            }
-          }
-        }
+
 
         // 3. Background
         if (selectedAutoTabs.includes('background')) {
@@ -756,9 +727,7 @@ export const Workstation: React.FC = () => {
           autoStoryboardFile={autoStoryboardFile}
           setAutoStoryboardFile={setAutoStoryboardFile}
           shot={shot}
-          handleAutoCompositionUpload={handleAutoCompositionUpload}
-          autoCompositionFile={autoCompositionFile}
-          setAutoCompositionFile={setAutoCompositionFile}
+
           handleAutoBackgroundUpload={handleAutoBackgroundUpload}
           autoBackgroundFile={autoBackgroundFile}
           setAutoBackgroundFile={setAutoBackgroundFile}
@@ -841,7 +810,7 @@ export const Workstation: React.FC = () => {
           )}
         </div>
 
-        <div className="flex-1 flex gap-4 overflow-hidden">
+        <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
           {/* Version List (Left Side of Canvas) */}
           <div className="w-20 flex flex-col gap-2 overflow-y-auto pr-2">
             {versions.map(v => (

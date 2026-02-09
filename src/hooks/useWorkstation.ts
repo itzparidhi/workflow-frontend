@@ -21,10 +21,8 @@ export const useWorkstation = () => {
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [uploadingRefs, setUploadingRefs] = useState<{
     storyboard: boolean;
-    composition: boolean;
     style: boolean;
-    lighting: boolean;
-  }>({ storyboard: false, composition: false, style: false, lighting: false });
+  }>({ storyboard: false, style: false });
 
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -91,7 +89,7 @@ export const useWorkstation = () => {
     setReview(reviewData);
   };
 
-  const handleReferenceUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'storyboard' | 'composition' | 'style' | 'lighting') => {
+  const handleReferenceUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'storyboard' | 'style') => {
     if (!e.target.files || !e.target.files[0] || !shot) return;
     setUploadingRefs(prev => ({ ...prev, [type]: true }));
 

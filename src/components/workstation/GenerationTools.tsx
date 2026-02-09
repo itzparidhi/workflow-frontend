@@ -21,9 +21,7 @@ interface GenerationToolsProps {
     setSelectedAutoTabs: React.Dispatch<React.SetStateAction<string[]>>;
     fileInputRefs: {
         storyboard: React.RefObject<HTMLInputElement | null>;
-        composition: React.RefObject<HTMLInputElement | null>;
         background: React.RefObject<HTMLInputElement | null>;
-        lighting: React.RefObject<HTMLInputElement | null>;
         // Angles mode refs
         anglesAnchor: React.RefObject<HTMLInputElement | null>;
         anglesTarget: React.RefObject<HTMLInputElement | null>;
@@ -35,9 +33,6 @@ interface GenerationToolsProps {
     autoStoryboardFile: File | null;
     setAutoStoryboardFile: (file: File | null) => void;
     shot: Shot;
-    handleAutoCompositionUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    autoCompositionFile: File | null;
-    setAutoCompositionFile: (file: File | null) => void;
     handleAutoBackgroundUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
     autoBackgroundFile: File | null;
     setAutoBackgroundFile: (file: File | null) => void;
@@ -57,9 +52,7 @@ interface GenerationToolsProps {
     isGenerating: boolean;
     uploadingRefs: {
         storyboard: boolean;
-        composition: boolean;
         style: boolean;
-        lighting: boolean;
     };
     // Angles Props
     anglesAngle: string;
@@ -132,14 +125,11 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
     fileInputRefs,
     handleAutoStoryboardUpload,
     autoStoryboardFile,
-    // setAutoStoryboardFile,
+    setAutoStoryboardFile,
     shot,
-    handleAutoCompositionUpload,
-    autoCompositionFile,
-    // setAutoCompositionFile,
     handleAutoBackgroundUpload,
     autoBackgroundFile,
-    // setAutoBackgroundFile,
+    setAutoBackgroundFile,
     characterTabs,
     autoCharacterFiles,
     handleAutoCharacterUpload,
@@ -165,16 +155,89 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
     anglesBackground,
     setAnglesBackground,
     anglesAnchorFile,
-    // setAnglesAnchorFile,
+    setAnglesAnchorFile,
     handleAnglesAnchorUpload,
     anglesTargetFile,
-    // setAnglesTargetFile,
+    setAnglesTargetFile,
     handleAnglesTargetUpload,
     // BG Grid
     backgroundGridFile,
-    // setBackgroundGridFile,
+    setBackgroundGridFile,
     handleBackgroundGridUpload
 }) => {
+    // Helper handlers for drag and drop
+    const onButtonDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const onDropFile = async (e: React.DragEvent, setter: ((file: File | null) => void) | undefined) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!setter) return;
+
+        // Handle File Drop
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            if (file.type.startsWith('image/')) {
+                setter(file);
+            }
+            return;
+        }
+
+        // Handle URL Drop (from Gallery/Web)
+        const imageUrl = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+        if (imageUrl) {
+            try {
+                // Determine filename from URL or default
+                const filename = imageUrl.split('/').pop()?.split('?')[0] || 'dropped-image.jpg';
+                const response = await fetch(imageUrl);
+                const blob = await response.blob();
+                const file = new File([blob], filename, { type: blob.type });
+                setter(file);
+            } catch (error) {
+                console.error("Failed to fetch dropped image:", error);
+            }
+        }
+    };
+
+    const onDropCharacter = async (e: React.DragEvent, id: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        let file: File | null = null;
+
+        // Handle File Drop
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const droppedFile = e.dataTransfer.files[0];
+            if (droppedFile.type.startsWith('image/')) {
+                file = droppedFile;
+            }
+        }
+        // Handle URL Drop
+        else {
+            const imageUrl = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+            if (imageUrl) {
+                try {
+                    const filename = imageUrl.split('/').pop()?.split('?')[0] || 'dropped-character.jpg';
+                    const response = await fetch(imageUrl);
+                    const blob = await response.blob();
+                    file = new File([blob], filename, { type: blob.type });
+                } catch (error) {
+                    console.error("Failed to fetch dropped character image:", error);
+                }
+            }
+        }
+
+        if (file) {
+            // Create a synthetic event to reuse the handler
+            const syntheticEvent = {
+                target: { files: [file] }
+            } as unknown as React.ChangeEvent<HTMLInputElement>;
+            handleAutoCharacterUpload(id, syntheticEvent);
+        }
+    };
     return (
         <div className="mb-6 p-4 bg-zinc-800/50 rounded-lg border border-zinc-700 space-y-4">
             {/* <div className="glass-panel p-5 rounded-lg space-y-4 bg-black/40"> */}
@@ -318,6 +381,8 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                                 <button
                                     onClick={() => { }} // No tab toggle needed for fixed inputs
                                     onDoubleClick={() => fileInputRefs.anglesAnchor.current?.click()}
+                                    onDragOver={onButtonDragOver}
+                                    onDrop={(e) => onDropFile(e, setAnglesAnchorFile)}
                                     className={`
                                         w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
                                         ${anglesAnchorFile ? 'bg-zinc-800 border-white text-white shadow-lg' : 'bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-400'}
@@ -361,6 +426,8 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                                 <button
                                     onClick={() => { }}
                                     onDoubleClick={() => fileInputRefs.anglesTarget.current?.click()}
+                                    onDragOver={onButtonDragOver}
+                                    onDrop={(e) => onDropFile(e, setAnglesTargetFile)}
                                     className={`
                                         w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
                                         ${anglesTargetFile ? 'bg-zinc-800 border-white text-white shadow-lg' : 'bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-400'}
@@ -418,6 +485,8 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                                         }
                                     }}
                                     onDoubleClick={() => fileInputRefs.storyboard.current?.click()}
+                                    onDragOver={onButtonDragOver}
+                                    onDrop={(e) => onDropFile(e, setAutoStoryboardFile)}
                                     className={`
                     w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
                     ${selectedAutoTabs.includes('storyboard')
@@ -482,6 +551,8 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                                     <button
                                         onClick={() => { }}
                                         onDoubleClick={() => fileInputRefs.backgroundGrid?.current?.click()}
+                                        onDragOver={onButtonDragOver}
+                                        onDrop={(e) => onDropFile(e, setBackgroundGridFile)}
                                         className={`
                                             w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
                                             ${backgroundGridFile ? 'bg-zinc-800 border-white text-white shadow-lg' : 'bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-400'}
@@ -548,6 +619,8 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                                     );
                                 }}
                                 onDoubleClick={() => fileInputRefs.storyboard.current?.click()}
+                                onDragOver={onButtonDragOver}
+                                onDrop={(e) => onDropFile(e, setAutoStoryboardFile)}
                                 className={`
                     w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
                     ${selectedAutoTabs.includes('storyboard')
@@ -591,54 +664,7 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                             </button>
 
                                 {/* Composition & Lighting Tab (Merged) */}
-                            <button
-                                onClick={() => {
-                                    setSelectedAutoTabs(prev =>
-                                        prev.includes('composition') ? prev.filter(t => t !== 'composition') : [...prev, 'composition']
-                                    );
-                                }}
-                                onDoubleClick={() => fileInputRefs.composition.current?.click()}
-                                className={`
-                    w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
-                    ${selectedAutoTabs.includes('composition')
-                                        ? 'bg-zinc-800 border-white text-white shadow-lg'
-                                        : 'bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-400'
-                                    }
-                    `}
-                            >
-                                <input
-                                    type="file"
-                                    ref={fileInputRefs.composition}
-                                    className="hidden"
-                                    onChange={handleAutoCompositionUpload}
-                                    accept="image/*"
-                                />
 
-                                {/* Icon Top-Left */}
-                                <div className="z-20">
-                                    <Sparkles size={18} className={selectedAutoTabs.includes('composition') ? 'fill-current' : ''} />
-                                </div>
-
-                                {/* Label Bottom-Left */}
-                                <span className="text-[10px] font-bold tracking-wider text-left z-20 leading-tight w-full">Lighting</span>
-
-                                {/* Hover Overlay */}
-                                <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
-                                    <span className="text-[8px] text-zinc-300 font-mono text-center px-1">Drop or Select File</span>
-                                </div>
-
-                                {/* Content Background */}
-                                {(autoCompositionFile || shot.composition_url || shot.lighting_url) && (
-                                    <div className="absolute inset-0 z-10 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
-                                        <DriveImage
-                                            src={autoCompositionFile ? URL.createObjectURL(autoCompositionFile) : shot.composition_url || shot.lighting_url || undefined}
-                                            className="w-full h-full"
-                                            imageClassName="object-cover"
-                                            alt=""
-                                        />
-                                    </div>
-                                )}
-                            </button>
 
                                 {/* Background Tab */}
                                 <button
@@ -648,6 +674,8 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                                         );
                                     }}
                                     onDoubleClick={() => fileInputRefs.background.current?.click()}
+                                    onDragOver={onButtonDragOver}
+                                    onDrop={(e) => onDropFile(e, setAutoBackgroundFile)}
                                     className={`
                     w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
                     ${selectedAutoTabs.includes('background')
@@ -716,6 +744,8 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                                                 const input = fileInputRefs.characters.current.get(char.id);
                                                 input?.click();
                                             }}
+                                            onDragOver={onButtonDragOver}
+                                            onDrop={(e) => onDropCharacter(e, char.id)}
                                             className={`
                       w-24 h-24 rounded-xl border-2 border-dashed flex flex-col justify-between items-start text-left p-3 relative overflow-hidden group transition-all shrink-0
                       ${isSelected

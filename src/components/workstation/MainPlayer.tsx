@@ -24,7 +24,7 @@ export const MainPlayer: React.FC<MainPlayerProps> = ({
     };
 
     return (
-        <div className="flex-1 flex items-center justify-center bg-zinc-950 rounded overflow-hidden relative border border-zinc-800 group">
+        <div className="flex-1 flex items-center justify-center bg-black rounded overflow-hidden relative border border-zinc-800 group min-h-0">
             {selectedGeneration ? (
                 <>
                     <div
@@ -53,7 +53,8 @@ export const MainPlayer: React.FC<MainPlayerProps> = ({
                         <DriveImage
                             src={activeVersion.public_link || activeVersion.gdrive_link}
                             alt="Active Version"
-                            className="max-w-full max-h-full object-contain"
+                            className="w-full h-full"
+                            imageClassName="object-contain"
                         />
                     </div>
                     <button

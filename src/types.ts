@@ -32,9 +32,7 @@ export interface Shot {
   assigned_pe_id: string | null;
   storyboard_url: string | null;
   storyboard_uploader_id: string | null;
-  composition_url: string | null;
   style_url: string | null;
-  lighting_url: string | null;
   background_urls?: string[] | null;
   sequence: number;
   created_at: string;
