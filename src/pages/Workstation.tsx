@@ -25,7 +25,7 @@ export const Workstation: React.FC = () => {
 
   // AI Generation State
   const [prompt, setPrompt] = useState('');
-  const [selectedModel, setSelectedModel] = useState('Google Nanobanana');
+  const [selectedModel, setSelectedModel] = useState('Gemini 2.0 Flash');
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [isGenerating, setIsGenerating] = useState(false);
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
@@ -656,12 +656,18 @@ export const Workstation: React.FC = () => {
       setGenerations(prev => [tempGen, ...prev]);
 
       // Call API (don't await blocking UI)
+      const getModelId = (name: string) => {
+        if (name === 'Gemini 3 Pro' || name === 'Google Nanobanana Pro') return 'gemini-3-pro-image-preview';
+        // Default to Gemini 2.0 Flash (for "Gemini 2.0 Flash", "Google Nanobanana", or fallback)
+        return 'gemini-2.0-flash-exp';
+      };
+
       generateImage({
         prompt: prompt || '',
         mode: generationMode,
         shot_id: shot!.id,
         user_email: userProfile?.email || 'Unknown',
-        model: selectedModel === 'Google Nanobanana' ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image-preview',
+        model: getModelId(selectedModel),
         aspect_ratio: aspectRatio,
         resolution: resolution,
         ref_images: refImages,
@@ -808,7 +814,7 @@ export const Workstation: React.FC = () => {
           setFullScreenImage={setFullScreenImage}
           setZoomLevel={setZoomLevel}
           navigate={navigate}
-          isGenerating={isGenerating}
+
           projectId={projectId}
           selectedBackgroundUrl={selectedBackgroundUrl}
           setSelectedBackgroundUrl={setSelectedBackgroundUrl}

@@ -812,8 +812,8 @@ export const GenerationTools: React.FC<GenerationToolsProps> = ({
                                 <option>Gemini 3 Pro</option>
                             ) : (
                                 <>
-                                    <option>Google Nanobanana</option>
-                                    <option>Google Nanobanana Pro</option>
+                                    <option>Gemini 2.0 Flash</option>
+                                    <option>Gemini 3 Pro</option>
                                 </>
                             )}
                         </select>

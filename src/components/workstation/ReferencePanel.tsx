@@ -23,7 +23,6 @@ interface ReferencePanelProps {
     setFullScreenImage: (url: string | null) => void;
     setZoomLevel: (level: number) => void;
     navigate: (path: number) => void;
-    isGenerating: boolean;
     projectId: string | null;
     selectedBackgroundUrl: string | null;
     setSelectedBackgroundUrl: (url: string | null) => void;
@@ -39,7 +38,6 @@ export const ReferencePanel: React.FC<ReferencePanelProps> = ({
     setFullScreenImage,
     setZoomLevel,
     navigate,
-    isGenerating,
     projectId,
     selectedBackgroundUrl,
     setSelectedBackgroundUrl,
